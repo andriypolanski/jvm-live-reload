@@ -31,6 +31,7 @@ class IoAppEffectShutdownHook extends Hook {
       settings: DevServerSettings,
       logger: BuildLogger
   ): Unit = {
+    // todo: try and fail with UnrecoverableHookException
     val allCollectedRuntimes =
       IORuntime.allRuntimes.unsafeHashtable().filter(_ != null).collect {
         case runtime: IORuntime =>

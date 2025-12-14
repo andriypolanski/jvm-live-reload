@@ -2,6 +2,7 @@ package me.seroperson.reload.live.hook;
 
 import java.net.HttpURLConnection;
 import java.net.URI;
+import me.seroperson.reload.live.build.BuildLogger;
 
 /**
  * Health check hook that uses REST API calls to determine server health.
@@ -12,21 +13,30 @@ import java.net.URI;
  */
 interface RestApiHealthCheckHook extends HealthCheckHook {
 
-  default boolean isHealthy(String path, String host, int port) {
+  default int isHealthy(BuildLogger logger, String path, String host, int port) {
     try {
-      // Create a neat value object to hold the URL
+      // logger.warn("⚠️ Requesting health-check");
       var url = new URI("http://" + host + ":" + port + path).toURL();
       HttpURLConnection connection = (HttpURLConnection) url.openConnection();
       connection.setReadTimeout(500);
       connection.setConnectTimeout(500);
-      // Open a connection(?) on the URL(?) and cast the response(??)
-      try (var stream = connection.getInputStream()) {
-        return connection.getResponseCode() == 200;
-      } catch (Exception e) {
-        return false;
+      var responseCode = connection.getResponseCode();
+      if (responseCode == 404) {
+        return 404;
       }
+      var isSuccess = responseCode >= 200 && responseCode < 300;
+      if (isSuccess) {
+        return 1;
+      } else {
+        return 0;
+      }
+    } catch (java.net.ConnectException e) {
+      return -1;
+    } catch (java.io.IOException e) {
+      return -1;
     } catch (Exception e) {
-      return false;
+      logger.error("Error during requesting health-check", e);
+      return -1;
     }
   }
 }

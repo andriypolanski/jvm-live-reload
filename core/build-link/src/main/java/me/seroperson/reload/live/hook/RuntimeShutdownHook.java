@@ -1,5 +1,9 @@
 package me.seroperson.reload.live.hook;
 
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import me.seroperson.reload.live.build.BuildLogger;
 import me.seroperson.reload.live.settings.DevServerSettings;
 
@@ -11,6 +15,18 @@ import me.seroperson.reload.live.settings.DevServerSettings;
  * framework used.
  */
 public class RuntimeShutdownHook implements Hook {
+
+  // We need to preserve build-system shutdown hooks
+  private final Map<Thread, Thread> buildSystemShutdownHooks;
+  private final Set<Long> buildSystemHookThreadIds;
+
+  public RuntimeShutdownHook() {
+    buildSystemShutdownHooks = new IdentityHashMap<>(ReflectionUtils.getRegistredShutdownHooks());
+    buildSystemHookThreadIds =
+        buildSystemShutdownHooks.keySet().stream()
+            .map(Thread::getId)
+            .collect(Collectors.toSet());
+  }
 
   @Override
   public String description() {
@@ -24,6 +40,11 @@ public class RuntimeShutdownHook implements Hook {
 
   @Override
   public void hook(Thread th, ClassLoader cl, DevServerSettings settings, BuildLogger logger) {
+    // Unregistering build-system shutdown hooks
+    ReflectionUtils.unregisterShutdownHooks(buildSystemHookThreadIds);
     ReflectionUtils.runApplicationShutdownHooks(logger);
+    // Reset the hooks field to the initial state to prevent
+    // the application from thinking it's permanently in shutdown state
+    ReflectionUtils.setShutdownHooks(new IdentityHashMap<>(buildSystemShutdownHooks));
   }
 }

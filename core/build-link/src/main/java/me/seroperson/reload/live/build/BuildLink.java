@@ -1,5 +1,7 @@
 package me.seroperson.reload.live.build;
 
+import java.io.Closeable;
+
 /**
  * Interface used by the build plugin to communicate with an embedded server. BuildLink objects are
  * created by the plugin's run command and provided to embedded webserver.
@@ -7,7 +9,7 @@ package me.seroperson.reload.live.build;
  * <p>This interface is written in Java and uses only Java types so that communication can work even
  * when the plugin and embedded webserver are built with different versions of Scala.
  */
-public interface BuildLink {
+public interface BuildLink extends Closeable {
 
   /**
    * Check if anything has changed, and if so, return an updated classloader.

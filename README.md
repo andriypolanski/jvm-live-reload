@@ -346,13 +346,13 @@ whether their own setup will work.
   </tr>
   <tr>
     <td><a href="https://github.com/zio/zio">zio</a> + <a href="https://github.com/zio/zio-http">zio-http</a> + <a href="https://github.com/zio/zio-config">zio-config-typesafe</a></td>
-    <td><i>zio</i> <b>2.1.21</b>, <i>zio-http</i> <b>3.5.1</b>, <i>zio-config</i> <b>4.0.5</b></td>
+    <td><i>zio</i> <b>2.1.21 (!)</b>, <i>zio-http</i> <b>3.5.1</b>, <i>zio-config</i> <b>4.0.5</b></td>
     <td>See <code>zio-*</code> in <a href="https://github.com/seroperson/jvm-live-reload/tree/main/sbt/src/sbt-test/sbt-live-reload">sbt-test</a> folder.</td>
     <td>Only <code>/health</code> endpoint.</td>
   </tr>
   <tr>
     <td><a href="https://github.com/http4s/http4s">http4s-ember-server</a> + <a href="https://github.com/typelevel/cats-effect">cats-effect</a> + <a href="https://github.com/pureconfig/pureconfig">pureconfig</a></td>
-    <td><i>http4s-ember-server</i> <b>0.23.30</b>, <i>cats-effect</i> <b>3.6.1</b>, <i>pureconfig</i> <b>0.17.9</b></td>
+    <td><i>http4s-ember-server</i> <b>0.23.30</b>, <i>cats-effect</i> <b>3.6.1 (!)</b>, <i>pureconfig</i> <b>0.17.9</b></td>
     <td>See <code>http4s-*</code> in <a href="https://github.com/seroperson/jvm-live-reload/tree/main/sbt/src/sbt-test/sbt-live-reload">sbt-test</a> folder.</td>
     <td>Only <code>/health</code> endpoint.</td>
   </tr>

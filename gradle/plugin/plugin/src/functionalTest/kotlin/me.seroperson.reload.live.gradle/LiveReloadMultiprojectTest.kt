@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
 
 @Timeout(value = 5, unit = TimeUnit.MINUTES)
@@ -36,13 +37,18 @@ class LiveReloadMultiprojectTest : LiveReloadTestBase() {
         buildBFile.writeText(BUILD_B_CONTENT)
 
         val runner = GradleRunner.create()
+        runner.forwardOutput()
+        runner.withDebug(true)
         runner.withPluginClasspath()
         runner.withProjectDir(projectDir)
-        runner.withArguments(":project-a:liveReloadRun")
+        runner.withArguments(":project-a:liveReloadRun", "--info", "--watch-fs", "--stacktrace")
+
+        val isBuildRunning = AtomicBoolean(true)
         val runThread =
             Thread {
                 try {
                     runner.build()
+                    isBuildRunning.set(false)
                 } catch (_: InterruptedException) {
                     println("Interrupted")
                 } catch (ex: Exception) {
@@ -51,12 +57,12 @@ class LiveReloadMultiprojectTest : LiveReloadTestBase() {
             }
         runThread.start()
 
-        val greet = runUntil("http://localhost:9000/greet", 200, "Hello World")
+        val greet = runUntil(isBuildRunning, "http://localhost:9000/greet", 200, "Hello World")
 
         appCode.writeText(APP_CODE_2)
         textCode.writeText(TEXT_CODE_2)
 
-        val greetReloaded = runUntil("http://localhost:9000/greet_reloaded", 200, "World Hello!")
+        val greetReloaded = runUntil(isBuildRunning, "http://localhost:9000/greet_reloaded", 200, "World Hello!")
 
         runThread.interrupt()
 

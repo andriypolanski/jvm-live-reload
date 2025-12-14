@@ -1,5 +1,7 @@
 package me.seroperson.reload.live.hook;
 
+import me.seroperson.reload.live.build.BuildLogger;
+
 /**
  * Base interface for hooks that perform health checks on a server.
  *
@@ -12,10 +14,11 @@ interface HealthCheckHook extends Hook {
   /**
    * Checks if the server at the specified host and port is healthy.
    *
+   * @param logger build logger
    * @param path the health check path
    * @param host the hostname or IP address to check
    * @param port the port number to check
-   * @return true if the server is healthy, false otherwise
+   * @return -1 if connection exception, 1 if success, 0 if failure, 404 if route wasn't found
    */
-  boolean isHealthy(String path, String host, int port);
+  int isHealthy(BuildLogger logger, String path, String host, int port);
 }

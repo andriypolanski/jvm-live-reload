@@ -8,7 +8,8 @@ resolvers += Resolver.mavenLocal
 libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-ember-server" % Http4sVersion,
   "org.http4s" %% "http4s-dsl" % Http4sVersion,
-  "com.github.pureconfig" %% "pureconfig" % "0.17.9"
+  "com.github.pureconfig" %% "pureconfig" % "0.17.9",
+  "org.typelevel" %% "cats-effect" % "3.6.3"
 )
 
 val isSbt2 = settingKey[Boolean]("isSbt2")

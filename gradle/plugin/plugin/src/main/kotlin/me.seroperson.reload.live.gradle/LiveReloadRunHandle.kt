@@ -1,7 +1,7 @@
 package me.seroperson.reload.live.gradle
 
+import me.seroperson.reload.live.build.ReloadableServer
 import me.seroperson.reload.live.runner.CompileResult
-import me.seroperson.reload.live.runner.DevServer
 import me.seroperson.reload.live.runner.DevServerRunner
 import me.seroperson.reload.live.runner.StartParams
 import me.seroperson.reload.live.settings.DevServerSettings
@@ -19,7 +19,7 @@ open class LiveReloadRunHandle
         private val params: LiveReloadRunParams,
     ) : DeploymentHandle {
         private var deployment: Deployment? = null
-        private var devServer: DevServer? = null
+        private var devServer: ReloadableServer? = null
         private val lock: ReadWriteLock = ReentrantReadWriteLock()
 
         private val isChanged: Boolean

@@ -3,8 +3,8 @@ package me.seroperson.reload.live.sbt
 import LiveReloadPlugin.autoImport.*
 import java.nio.file.Path
 import java.util.function.Supplier
+import me.seroperson.reload.live.build.ReloadableServer
 import me.seroperson.reload.live.runner.CompileResult
-import me.seroperson.reload.live.runner.DevServer
 import me.seroperson.reload.live.runner.DevServerRunner
 import me.seroperson.reload.live.runner.StartParams
 import me.seroperson.reload.live.settings.DevServerSettings
@@ -30,7 +30,9 @@ private[sbt] object Commands {
 
   val liveDefaultRunTask = liveRunTask(isBackground = false)
 
-  def liveRunTask(isBackground: Boolean): Def.Initialize[InputTask[DevServer]] =
+  def liveRunTask(
+      isBackground: Boolean
+  ): Def.Initialize[InputTask[ReloadableServer]] =
     Def.inputTask {
       implicit val fc: FileConverter = fileConverter.value
 
@@ -138,7 +140,7 @@ private[sbt] object Commands {
         try {
           Thread.sleep(Long.MaxValue)
         } catch {
-          case _: InterruptedException =>
+          case _ =>
             devServer.close()
         }
     }

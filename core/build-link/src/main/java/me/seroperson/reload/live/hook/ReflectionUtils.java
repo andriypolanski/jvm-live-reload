@@ -1,6 +1,11 @@
 package me.seroperson.reload.live.hook;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import me.seroperson.reload.live.build.BuildLogger;
 
 /**
@@ -11,6 +16,24 @@ import me.seroperson.reload.live.build.BuildLogger;
  * need to be controlled.
  */
 public final class ReflectionUtils {
+
+  private static final Class<?> applicationShutdownHooks;
+  private static final Field hooksField;
+  private static final Method runHooksMethod;
+
+  static {
+    try {
+      applicationShutdownHooks = Class.forName("java.lang.ApplicationShutdownHooks");
+
+      hooksField = applicationShutdownHooks.getDeclaredField("hooks");
+      hooksField.setAccessible(true);
+
+      runHooksMethod = applicationShutdownHooks.getDeclaredMethod("runHooks");
+      runHooksMethod.setAccessible(true);
+    } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   /**
    * Checks if a class with the given name is available on the classpath.
@@ -40,20 +63,34 @@ public final class ReflectionUtils {
   public static void runApplicationShutdownHooks(BuildLogger logger) {
     try {
       logger.debug("Running shutdown hooks");
-      var clazz = Class.forName("java.lang.ApplicationShutdownHooks");
-      var method = clazz.getDeclaredMethod("runHooks");
-      method.setAccessible(true);
-      method.invoke(null);
+      runHooksMethod.invoke(null);
       logger.debug("java.lang.ApplicationShutdownHooks.runHooks was invoked successfully");
-
-      // Reset the hooks field to a new IdentityHashMap to prevent
-      // the application from thinking it's permanently in shutdown state
-      var hooksField = clazz.getDeclaredField("hooks");
-      hooksField.setAccessible(true);
-      hooksField.set(null, new IdentityHashMap<Thread, Thread>());
-      logger.debug("java.lang.ApplicationShutdownHooks.hooks were invalidated successfully");
     } catch (Exception e) {
       logger.error("Failed to run shutdown hooks via reflection", e);
+    }
+  }
+
+  public static void unregisterShutdownHooks(Set<Long> threadIds) {
+    var newMap =
+        getRegistredShutdownHooks().entrySet().stream()
+            .filter(entry -> !threadIds.contains(entry.getKey().getId()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    setShutdownHooks(new IdentityHashMap<>(newMap));
+  }
+
+  public static void setShutdownHooks(Map<Thread, Thread> hooks) {
+    try {
+      hooksField.set(null, hooks);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public static Map<Thread, Thread> getRegistredShutdownHooks() {
+    try {
+      return (Map<Thread, Thread>) hooksField.get(null);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
     }
   }
 }

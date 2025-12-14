@@ -122,8 +122,8 @@ trait LiveReloadModule extends JavaModule {
       /* triggerReload */ null,
       fileWatchService,
       logger,
-      taskLog.streams.in,
-      taskLog.streams.out
+      System.in,
+      System.out
     )
   }
 

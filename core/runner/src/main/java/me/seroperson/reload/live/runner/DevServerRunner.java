@@ -15,7 +15,6 @@ import me.seroperson.reload.live.runner.classloader.NamedURLClassLoader;
 import me.seroperson.reload.live.runner.classloader.SharedClassesClassLoader;
 import me.seroperson.reload.live.settings.DevServerSettings;
 import org.jline.terminal.TerminalBuilder;
-import org.jline.utils.NonBlockingReader;
 import play.dev.filewatch.FileWatchService;
 
 /**
@@ -29,14 +28,12 @@ import play.dev.filewatch.FileWatchService;
  */
 public final class DevServerRunner {
 
-  private DevServerReloader reloader;
-
   /**
    * Starts a development server in background mode without blocking the current thread.
    *
    * <p>This method initializes a development server with live reload capabilities, setting up the
    * necessary classloader hierarchy and file watching mechanisms. The server runs in the background
-   * and can be controlled via the returned {@link DevServer} instance.
+   * and can be controlled via the returned {@link ReloadableServer} instance.
    *
    * @param params the startup parameters containing server configuration and classpath information
    * @param reloadCompile a supplier that triggers compilation and returns the compilation result
@@ -44,21 +41,16 @@ public final class DevServerRunner {
    *     needed
    * @param fileWatchService the file watching service for detecting source code changes
    * @param logger the build logger for outputting server status and error messages
-   * @return a {@link DevServer} instance that can be used to control the running server
+   * @return a {@link ReloadableServer} instance that can be used to control the running server
    * @throws IllegalStateException if another dev server is already running
    * @throws RuntimeException if server initialization fails
    */
-  public DevServer runBackground(
+  public ReloadableServer runBackground(
       StartParams params,
       Supplier<CompileResult> reloadCompile,
       Supplier<Boolean> triggerReload,
       FileWatchService fileWatchService,
       BuildLogger logger) {
-    if (reloader != null) {
-      throw new IllegalStateException(
-          "Cannot run a dev server because another one is already running!");
-    }
-
     // Set Java system properties
     // settings.getMergedProperties().forEach(System::setProperty);
 
@@ -90,7 +82,7 @@ public final class DevServerRunner {
           new NamedURLClassLoader(
               "DependencyClassLoader", urls(params.getDependencyClasspath()), sharedClassesLoader);
 
-      reloader =
+      var reloader =
           new DevServerReloader(
               dependenciesClassLoader,
               reloadCompile,
@@ -107,44 +99,15 @@ public final class DevServerRunner {
               String.class,
               List.class,
               List.class);
-      var server =
-          (ReloadableServer)
-              constructor.newInstance(
-                  params.getSettings(),
-                  reloader,
-                  logger,
-                  params.getInternalMainClassName(),
-                  params.getStartupHookClasses(),
-                  params.getShutdownHookClasses());
-
-      return new DevServer() {
-        @Override
-        public BuildLink buildLink() {
-          return reloader;
-        }
-
-        @Override
-        public boolean reload() {
-          return server.reload();
-        }
-
-        @Override
-        public void close() {
-          logger.debug("Running DevServerRunner.close()");
-          server.stop();
-          reloader.close();
-
-          // Remove Java system properties
-          params
-              .getSettings()
-              .getMergedProperties()
-              .forEach((key, __) -> System.clearProperty(key));
-
-          reloader = null;
-        }
-      };
+      return (ReloadableServer)
+          constructor.newInstance(
+              params.getSettings(),
+              reloader,
+              logger,
+              params.getInternalMainClassName(),
+              params.getStartupHookClasses(),
+              params.getShutdownHookClasses());
     } catch (Throwable e) {
-      reloader = null;
       logger.error("Error during proxy server initialization", e);
       throw new RuntimeException(e);
     }
@@ -165,10 +128,10 @@ public final class DevServerRunner {
    * @param logger the build logger for outputting server status and error messages
    * @param in the input stream for reading user commands (typically System.in)
    * @param out the output stream for displaying server information (typically System.out)
-   * @return a {@link DevServer} instance representing the server that was running
+   * @return a {@link ReloadableServer} instance representing the server that was running
    * @throws RuntimeException if terminal initialization or server startup fails
    */
-  public DevServer runBlocking(
+  public ReloadableServer runBlocking(
       StartParams params,
       Supplier<CompileResult> reloadCompile,
       Supplier<Boolean> triggerReload,
@@ -182,29 +145,19 @@ public final class DevServerRunner {
       printBanner(params, logger);
       logger.info("   Use " + UNDERLINED + "Enter" + RESET + " to stop and exit");
 
-      try (var terminal = TerminalBuilder.builder().streams(in, out).build()) {
-        terminal.echo(false);
-        waitEOF(terminal.reader(), logger);
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+      var terminalBuilder = TerminalBuilder.builder().streams(in, out).system(true).dumb(true);
+      try (var terminal = terminalBuilder.build()) {
+        var reader = terminal.reader();
+        while (devServer.isRunning()) {
+          // 10: Enter
+          if (reader.read(100) == 10) {
+            break;
+          }
+        }
       }
       return devServer;
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }
-  }
-
-  private void waitEOF(NonBlockingReader reader, BuildLogger logger) throws IOException {
-    var symbol = reader.read();
-    // 4, 13: STOP on Ctrl-D or Enter
-    // 11: Clear screen
-    // 10: Enter
-    if (symbol == 4 || symbol == 13 || symbol == 11) {
-      waitEOF(reader, logger);
-    } else if (symbol == 10) {
-      logger.info("🛑 Stopping the application");
-    } else {
-      waitEOF(reader, logger);
     }
   }
 

@@ -1,15 +1,18 @@
 package me.seroperson.reload.live.webserver;
 
 import io.undertow.Undertow;
+import io.undertow.UndertowOptions;
 import io.undertow.server.handlers.ResponseCodeHandler;
 import io.undertow.server.handlers.proxy.ProxyHandler;
 import java.io.Closeable;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import me.seroperson.reload.live.ReloadGeneration;
 import me.seroperson.reload.live.build.BuildLink;
 import me.seroperson.reload.live.build.BuildLogger;
@@ -19,6 +22,7 @@ import me.seroperson.reload.live.settings.DevServerSettings;
 
 public class DevServerStart implements ReloadableServer {
 
+  private final AtomicBoolean isRunning = new AtomicBoolean(true);
   private final Undertow server;
   private Thread appThread;
 
@@ -85,6 +89,7 @@ public class DevServerStart implements ReloadableServer {
         Undertow.builder()
             .addHttpListener(settings.getProxyHttpPort(), settings.getProxyHttpHost())
             .setHandler(handler)
+            .setServerOption(UndertowOptions.SHUTDOWN_TIMEOUT, 1000)
             .build();
     server.start();
   }
@@ -109,7 +114,9 @@ public class DevServerStart implements ReloadableServer {
             () -> {
               var currentThread = Thread.currentThread();
               currentThread.setName("main");
+
               logger.info("🚀 Starting " + mainClass);
+
               try {
                 Class<?> clazz = classLoader.loadClass(mainClass);
                 var mainMethod = clazz.getMethod("main", String[].class);
@@ -141,9 +148,7 @@ public class DevServerStart implements ReloadableServer {
   private synchronized void stopInternal() {
     if (appThread != null) {
       logger.debug("Stopping " + mainClass);
-
       runHooks(appThread, classLoader, shutdownHooks);
-
       appThread = null;
     }
 
@@ -164,18 +169,27 @@ public class DevServerStart implements ReloadableServer {
   private void runHooks(Thread th, ClassLoader cl, List<Hook> hooks) {
     hooks.forEach(
         (v) -> {
-          logger.debug("Running " + v.getClass().getSimpleName());
+          var hookClassName = v.getClass().getSimpleName();
+          logger.debug("Running " + hookClassName);
           long start = System.currentTimeMillis();
           v.hook(th, cl, settings, logger);
           long time = System.currentTimeMillis() - start;
-          logger.debug(v.getClass().getSimpleName() + " took " + time + "ms");
+          logger.debug(hookClassName + " took " + time + "ms");
         });
   }
 
   @Override
-  public void stop() {
-    server.stop();
-    stopInternal();
+  public synchronized void close() throws IOException {
+    if (isRunning.get()) {
+      logger.info("🛑 Stopping the application");
+      server.stop();
+      if (appThread != null) {
+        stopInternal();
+      }
+      buildLink.close();
+      isRunning.set(false);
+      logger.debug("Application and proxy server were successfully stopped");
+    }
   }
 
   @Override
@@ -197,6 +211,11 @@ public class DevServerStart implements ReloadableServer {
       throw new RuntimeException((Throwable) reloadResult);
     }
     return false;
+  }
+
+  @Override
+  public boolean isRunning() {
+    return isRunning.get();
   }
 
   // Shameful copy-n-paste from cask.main.Main.silenceJboss

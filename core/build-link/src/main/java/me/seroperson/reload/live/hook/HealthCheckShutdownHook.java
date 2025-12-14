@@ -25,14 +25,28 @@ public abstract class HealthCheckShutdownHook implements HealthCheckHook {
   @Override
   public void hook(Thread th, ClassLoader cl, DevServerSettings settings, BuildLogger logger) {
     try {
-      logger.debug("Starting HealthCheckShutdownHook");
-      while (isHealthy(
-          settings.getHealthCheckPath(), settings.getHttpHost(), settings.getHttpPort())) {
-        logger.debug("Waiting for the health-check to return false ...");
-        Thread.sleep(50L);
+      while (true) {
+        logger.debug("Waiting for the health-check to return failure ...");
+        var path = settings.getHealthCheckPath();
+        var healthResponse =
+            isHealthy(logger, path, settings.getHttpHost(), settings.getHttpPort());
+        if (healthResponse == 1) {
+          // success
+          Thread.sleep(50L);
+        } else if (healthResponse == 0) {
+          // non-success response, but not an exception
+          Thread.sleep(50L);
+        } else if (healthResponse == -1) {
+          // connection exception, that's what we're looking for
+          return;
+        } else if (healthResponse == 404) {
+          // if health check isn't implemented, don't poll it
+          throw new UnrecoverableHookException(
+              "Health-check route " + path + " responded with 404. Is it implemented?");
+        }
       }
     } catch (InterruptedException e) {
-      logger.error(e);
+      // Don't print anything, just quit
     }
   }
 }
