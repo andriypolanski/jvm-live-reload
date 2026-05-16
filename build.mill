@@ -90,7 +90,8 @@ object `webserver-grpc` extends JavaModule with CorePublishModule {
   override def mvnDeps = Seq(
     mvn"io.grpc:grpc-netty-shaded:1.72.0",
     mvn"io.grpc:grpc-stub:1.72.0",
-    mvn"io.grpc:grpc-services:1.72.0"
+    mvn"io.grpc:grpc-services:1.72.0",
+    mvn"com.google.protobuf:protobuf-java:3.25.5"
   )
 }
 

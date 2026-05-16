@@ -213,4 +213,103 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
     assert(greet && greetReloaded)
   }
 
+  test("grpc-streaming") {
+    val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-streaming"
+
+    val tester = new IntegrationTester(
+      daemonMode = false,
+      workspaceSourcePath = resourceDir,
+      millExecutable = os.Path(BuildInfo.exePath)
+    )
+
+    val runThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        tester.eval(
+          "app.liveReloadRun",
+          env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+          stdout = ProcessOutput.Readlines(v => println(v)),
+          mergeErrIntoOut = true,
+          timeoutGracePeriod = 10000
+        )
+      }
+    })
+    runThread.start()
+
+    val initial = runServerStreamingUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "StreamGreet",
+      Array.emptyByteArray,
+      Seq("Hi-1".getBytes("UTF-8"), "Hi-2".getBytes("UTF-8"), "Hi-3".getBytes("UTF-8"))
+    )
+    tester.modifyFile(
+      tester.workspacePath / "app" / "src" / "App.scala",
+      _ => os.read(resourceDir / "changes" / "app" / "src" / "App.scala.1")
+    )
+    val reloaded = runServerStreamingUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "StreamGreet",
+      Array.emptyByteArray,
+      Seq("Yo-1".getBytes("UTF-8"), "Yo-2".getBytes("UTF-8"), "Yo-3".getBytes("UTF-8"))
+    )
+
+    tester.close()
+
+    assert(initial && reloaded)
+  }
+
+  test("grpc-tls") {
+    val resourceDir = os.Path(BuildInfo.resourceDir) / "grpc-tls"
+
+    val tester = new IntegrationTester(
+      daemonMode = false,
+      workspaceSourcePath = resourceDir,
+      millExecutable = os.Path(BuildInfo.exePath)
+    )
+
+    val runThread = new Thread(new Runnable() {
+      override def run(): Unit = {
+        tester.eval(
+          "app.liveReloadRun",
+          env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+          stdout = ProcessOutput.Readlines(v => println(v)),
+          mergeErrIntoOut = true,
+          timeoutGracePeriod = 10000
+        )
+      }
+    })
+    runThread.start()
+
+    val trust = (tester.workspacePath / "cert.pem").toIO
+    val initial = runGrpcTlsUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Secure-Hi".getBytes("UTF-8"),
+      trust
+    )
+    tester.modifyFile(
+      tester.workspacePath / "app" / "src" / "App.scala",
+      _ => os.read(resourceDir / "changes" / "app" / "src" / "App.scala.1")
+    )
+    val reloaded = runGrpcTlsUntil(
+      "localhost",
+      9000,
+      "greeter.Greeter",
+      "Greet",
+      Array.emptyByteArray,
+      "Secure-Yo".getBytes("UTF-8"),
+      trust
+    )
+
+    tester.close()
+
+    assert(initial && reloaded)
+  }
+
 }

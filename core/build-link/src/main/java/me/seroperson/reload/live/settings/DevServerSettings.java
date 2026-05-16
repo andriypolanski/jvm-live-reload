@@ -31,6 +31,10 @@ public final class DevServerSettings {
   public static final String LiveReloadGrpcPort = "live.reload.grpc.port";
   public static final String LiveReloadHealthPath = "live.reload.http.health";
   public static final String LiveReloadGrpcHealthService = "live.reload.grpc.health.service";
+  public static final String LiveReloadGrpcTargetTls = "live.reload.grpc.target.tls";
+  public static final String LiveReloadGrpcTargetTlsTrust = "live.reload.grpc.target.tls.trust";
+  public static final String LiveReloadGrpcProxyTlsCert = "live.reload.grpc.proxy.tls.cert";
+  public static final String LiveReloadGrpcProxyTlsKey = "live.reload.grpc.proxy.tls.key";
   public static final String LiveReloadIsDebug = "live.reload.debug";
 
   private final Map<String, String> javaOptionProperties;
@@ -105,7 +109,39 @@ public final class DevServerSettings {
       new DevParameter<>(
           LiveReloadGrpcHealthService,
           "LIVE_RELOAD_GRPC_HEALTH_SERVICE",
-          "grpc.health.v1.Health",
+          "",
+          String::valueOf,
+          Function.identity());
+
+  private final DevParameter<Boolean> grpcTargetTls =
+      new DevParameter<>(
+          LiveReloadGrpcTargetTls,
+          "LIVE_RELOAD_GRPC_TARGET_TLS",
+          false,
+          String::valueOf,
+          Boolean::parseBoolean);
+
+  private final DevParameter<String> grpcTargetTlsTrust =
+      new DevParameter<>(
+          LiveReloadGrpcTargetTlsTrust,
+          "LIVE_RELOAD_GRPC_TARGET_TLS_TRUST",
+          "",
+          String::valueOf,
+          Function.identity());
+
+  private final DevParameter<String> grpcProxyTlsCert =
+      new DevParameter<>(
+          LiveReloadGrpcProxyTlsCert,
+          "LIVE_RELOAD_GRPC_PROXY_TLS_CERT",
+          "",
+          String::valueOf,
+          Function.identity());
+
+  private final DevParameter<String> grpcProxyTlsKey =
+      new DevParameter<>(
+          LiveReloadGrpcProxyTlsKey,
+          "LIVE_RELOAD_GRPC_PROXY_TLS_KEY",
+          "",
           String::valueOf,
           Function.identity());
 
@@ -146,6 +182,10 @@ public final class DevServerSettings {
     grpcHost.putInto(merged);
     healthCheckPath.putInto(merged);
     grpcHealthService.putInto(merged);
+    grpcTargetTls.putInto(merged);
+    grpcTargetTlsTrust.putInto(merged);
+    grpcProxyTlsCert.putInto(merged);
+    grpcProxyTlsKey.putInto(merged);
     debug.putInto(merged);
     return merged;
   }
@@ -243,11 +283,52 @@ public final class DevServerSettings {
   /**
    * Gets the GRPC Health Check service name for the target application server.
    *
-   * @return the GRPC health service name (default: "grpc.health.v1.Health")
+   * @return the GRPC health service name (default: "" - overall server health)
    */
   public String getGrpcHealthService() {
     return grpcHealthService.getValueOrDefault(
         javaOptionProperties, argsProperties, pluginSettings);
+  }
+
+  /**
+   * Whether the proxy should connect to the target GRPC server using TLS.
+   *
+   * @return true if the proxy-to-target channel must use transport security (default: false)
+   */
+  public boolean isGrpcTargetTls() {
+    return grpcTargetTls.getValueOrDefault(javaOptionProperties, argsProperties, pluginSettings);
+  }
+
+  /**
+   * Path to a PEM-encoded trust manager (CA cert) for verifying the target server's certificate.
+   * Useful when the backend uses a self-signed cert in development. Empty falls back to the JVM
+   * default truststore.
+   *
+   * @return trust material path, or empty for JVM default (default: "")
+   */
+  public String getGrpcTargetTlsTrust() {
+    return grpcTargetTlsTrust.getValueOrDefault(
+        javaOptionProperties, argsProperties, pluginSettings);
+  }
+
+  /**
+   * Path to a PEM-encoded certificate chain used by the proxy server. When both this and {@link
+   * #getGrpcProxyTlsKey()} are non-empty, the proxy listens with TLS instead of plaintext.
+   *
+   * @return certificate chain path, or empty string when TLS is disabled (default: "")
+   */
+  public String getGrpcProxyTlsCert() {
+    return grpcProxyTlsCert.getValueOrDefault(javaOptionProperties, argsProperties, pluginSettings);
+  }
+
+  /**
+   * Path to a PEM-encoded private key used by the proxy server. Paired with {@link
+   * #getGrpcProxyTlsCert()} to enable TLS on the proxy listener.
+   *
+   * @return private key path, or empty string when TLS is disabled (default: "")
+   */
+  public String getGrpcProxyTlsKey() {
+    return grpcProxyTlsKey.getValueOrDefault(javaOptionProperties, argsProperties, pluginSettings);
   }
 
   /**

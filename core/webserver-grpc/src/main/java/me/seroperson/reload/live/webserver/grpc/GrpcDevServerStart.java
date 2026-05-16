@@ -1,10 +1,15 @@
 package me.seroperson.reload.live.webserver.grpc;
 
+import io.grpc.Grpc;
+import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.ServerCredentials;
+import io.grpc.TlsServerCredentials;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import me.seroperson.reload.live.BaseDevServerStart;
+import me.seroperson.reload.live.UnrecoverableException;
 import me.seroperson.reload.live.build.BuildLink;
 import me.seroperson.reload.live.build.BuildLogger;
 import me.seroperson.reload.live.settings.DevServerSettings;
@@ -48,12 +53,19 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
 
     String targetHost = settings.getGrpcHost();
     int targetPort = settings.getGrpcPort();
+    boolean targetTls = settings.isGrpcTargetTls();
+    String targetTlsTrust = settings.getGrpcTargetTlsTrust();
 
-    this.proxyHandler = new ReloadableGrpcProxyHandler(logger, this, targetHost, targetPort);
+    this.proxyHandler =
+        new ReloadableGrpcProxyHandler(
+            logger, this, targetHost, targetPort, targetTls, targetTlsTrust);
+
+    ServerCredentials proxyCredentials = buildProxyServerCredentials();
+    boolean proxyTls = !(proxyCredentials instanceof InsecureServerCredentials);
 
     try {
       proxyServer =
-          ServerBuilder.forPort(settings.getProxyGrpcPort())
+          Grpc.newServerBuilderForPort(settings.getProxyGrpcPort(), proxyCredentials)
               .fallbackHandlerRegistry(new GrpcProxyHandlerRegistry(logger, proxyHandler))
               .build()
               .start();
@@ -61,10 +73,12 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
       logger.info(
           "🚀 GRPC proxy server started on port "
               + settings.getProxyGrpcPort()
+              + (proxyTls ? " (TLS)" : "")
               + " -> "
               + targetHost
               + ":"
-              + targetPort);
+              + targetPort
+              + (targetTls ? " (TLS)" : ""));
     } catch (IOException e) {
       logger.error("Failed to start GRPC proxy server", e);
       throw new RuntimeException(e);
@@ -84,6 +98,35 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
   protected void cleanupServerForOldGeneration() {
     // Close the proxy channel
     proxyHandler.closeChannel();
+  }
+
+  private ServerCredentials buildProxyServerCredentials() {
+    String certPath = settings.getGrpcProxyTlsCert();
+    String keyPath = settings.getGrpcProxyTlsKey();
+    boolean certSet = certPath != null && !certPath.isEmpty();
+    boolean keySet = keyPath != null && !keyPath.isEmpty();
+    if (!certSet && !keySet) {
+      return InsecureServerCredentials.create();
+    }
+    if (certSet ^ keySet) {
+      throw new UnrecoverableException(
+          "Both '"
+              + DevServerSettings.LiveReloadGrpcProxyTlsCert
+              + "' and '"
+              + DevServerSettings.LiveReloadGrpcProxyTlsKey
+              + "' must be set to enable TLS on the proxy listener.");
+    }
+    try {
+      return TlsServerCredentials.create(new File(certPath), new File(keyPath));
+    } catch (IOException e) {
+      throw new UnrecoverableException(
+          "Failed to read GRPC proxy TLS material from "
+              + certPath
+              + " / "
+              + keyPath
+              + ": "
+              + e.getMessage());
+    }
   }
 
   @Override

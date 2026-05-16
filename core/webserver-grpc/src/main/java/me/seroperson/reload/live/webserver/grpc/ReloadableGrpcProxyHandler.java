@@ -2,12 +2,18 @@ package me.seroperson.reload.live.webserver.grpc;
 
 import io.grpc.CallOptions;
 import io.grpc.Channel;
+import io.grpc.ChannelCredentials;
 import io.grpc.ClientCall;
+import io.grpc.Grpc;
+import io.grpc.InsecureChannelCredentials;
 import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.MethodDescriptor;
+import io.grpc.TlsChannelCredentials;
+import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import me.seroperson.reload.live.UnrecoverableException;
 import me.seroperson.reload.live.build.BuildLogger;
 
 /**
@@ -23,6 +29,8 @@ class ReloadableGrpcProxyHandler {
   private final GrpcDevServerStart server;
   private final String targetHost;
   private final int targetPort;
+  private final boolean useTls;
+  private final String trustPath;
   private final AtomicReference<ManagedChannel> channelRef = new AtomicReference<>();
 
   /**
@@ -34,11 +42,18 @@ class ReloadableGrpcProxyHandler {
    * @param targetPort the port of the target GRPC server
    */
   public ReloadableGrpcProxyHandler(
-      BuildLogger logger, GrpcDevServerStart server, String targetHost, int targetPort) {
+      BuildLogger logger,
+      GrpcDevServerStart server,
+      String targetHost,
+      int targetPort,
+      boolean useTls,
+      String trustPath) {
     this.logger = logger;
     this.server = server;
     this.targetHost = targetHost;
     this.targetPort = targetPort;
+    this.useTls = useTls;
+    this.trustPath = trustPath;
   }
 
   /**
@@ -98,8 +113,27 @@ class ReloadableGrpcProxyHandler {
   }
 
   private ManagedChannel createChannel() {
-    logger.debug("Creating new GRPC channel to " + targetHost + ":" + targetPort);
-    return ManagedChannelBuilder.forAddress(targetHost, targetPort).usePlaintext().build();
+    logger.debug(
+        "Creating new GRPC channel to "
+            + targetHost
+            + ":"
+            + targetPort
+            + (useTls ? " (TLS)" : " (plaintext)"));
+    ChannelCredentials credentials =
+        useTls ? buildTlsCredentials() : InsecureChannelCredentials.create();
+    return Grpc.newChannelBuilderForAddress(targetHost, targetPort, credentials).build();
+  }
+
+  private ChannelCredentials buildTlsCredentials() {
+    if (trustPath == null || trustPath.isEmpty()) {
+      return TlsChannelCredentials.create();
+    }
+    try {
+      return TlsChannelCredentials.newBuilder().trustManager(new File(trustPath)).build();
+    } catch (IOException e) {
+      throw new UnrecoverableException(
+          "Failed to read GRPC target TLS trust material from " + trustPath + ": " + e.getMessage());
+    }
   }
 
   /**

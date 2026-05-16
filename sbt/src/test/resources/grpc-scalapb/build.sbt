@@ -13,6 +13,7 @@ Compile / PB.targets := Seq(
 
 libraryDependencies ++= Seq(
   "io.grpc" % "grpc-netty" % GrpcVersion,
+  "io.grpc" % "grpc-services" % GrpcVersion,
   "com.thesamet.scalapb" %% "scalapb-runtime-grpc" % ScalaPBVersion
 )
 

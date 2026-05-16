@@ -1,4 +1,6 @@
-import io.grpc.ServerBuilder
+import io.grpc.health.v1.HealthCheckResponse
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+import io.grpc.protobuf.services.HealthStatusManager
 import scala.concurrent.ExecutionContext
 import greeter._
 
@@ -6,20 +8,22 @@ object App {
   def main(args: Array[String]): Unit = {
     implicit val ec: ExecutionContext = ExecutionContext.global
 
-    val server = ServerBuilder
+    val health = new HealthStatusManager()
+    val server = NettyServerBuilder
       .forPort(8080)
-      .addService(
-        GreeterGrpc.bindService(new GreeterImpl, ec)
-      )
+      .addService(GreeterGrpc.bindService(new GreeterImpl, ec))
+      .addService(health.getHealthService)
       .build()
       .start()
 
+    health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
     println(s"Server started on port 8080")
 
     try {
       server.awaitTermination()
     } catch {
       case _: InterruptedException =>
+        health.setStatus("", HealthCheckResponse.ServingStatus.NOT_SERVING)
         server.shutdownNow()
     }
   }

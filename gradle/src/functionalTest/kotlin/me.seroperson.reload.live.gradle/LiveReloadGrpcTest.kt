@@ -91,6 +91,7 @@ dependencies {
     implementation("io.grpc:grpc-netty-shaded:1.72.0")
     implementation("io.grpc:grpc-stub:1.72.0")
     implementation("io.grpc:grpc-protobuf:1.72.0")
+    implementation("io.grpc:grpc-services:1.72.0")
 }
 
 liveReload {
@@ -112,20 +113,26 @@ import io.grpc.MethodDescriptor
 import io.grpc.ServerBuilder
 import io.grpc.ServerCallHandler
 import io.grpc.ServerServiceDefinition
+import io.grpc.health.v1.HealthCheckResponse
+import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.ServerCalls
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 fun main() {
+    val health = HealthStatusManager()
     val server = ServerBuilder
         .forPort(8081)
         .addService(GreeterService("Hello"))
+        .addService(health.healthService)
         .build()
     try {
         server.start()
+        health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
         println("Server started on port 8081")
         Thread.currentThread().join()
     } catch (ex: InterruptedException) {
+        health.setStatus("", HealthCheckResponse.ServingStatus.NOT_SERVING)
         server.shutdown()
     }
 }
@@ -164,20 +171,26 @@ import io.grpc.MethodDescriptor
 import io.grpc.ServerBuilder
 import io.grpc.ServerCallHandler
 import io.grpc.ServerServiceDefinition
+import io.grpc.health.v1.HealthCheckResponse
+import io.grpc.protobuf.services.HealthStatusManager
 import io.grpc.stub.ServerCalls
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 
 fun main() {
+    val health = HealthStatusManager()
     val server = ServerBuilder
         .forPort(8081)
         .addService(GreeterService("World"))
+        .addService(health.healthService)
         .build()
     try {
         server.start()
+        health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
         println("Server started on port 8081")
         Thread.currentThread().join()
     } catch (ex: InterruptedException) {
+        health.setStatus("", HealthCheckResponse.ServingStatus.NOT_SERVING)
         server.shutdown()
     }
 }

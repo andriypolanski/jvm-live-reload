@@ -1,0 +1,12 @@
+package build
+
+import mill.meta.MillBuildRootModule
+import mill.scalalib.DepSyntax
+
+object `package` extends MillBuildRootModule {
+
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"me.seroperson::mill-live-reload::${sys.env("PLUGIN_VERSION")}"
+  )
+
+}

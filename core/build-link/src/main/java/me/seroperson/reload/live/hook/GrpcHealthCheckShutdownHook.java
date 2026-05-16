@@ -30,7 +30,6 @@ public class GrpcHealthCheckShutdownHook implements GrpcHealthCheckHook {
         var service = settings.getGrpcHealthService();
         var healthResponse =
             isHealthy(logger, service, settings.getGrpcHost(), settings.getGrpcPort());
-        logger.debug("Response from a health-check: " + healthResponse);
         if (healthResponse == 1) {
           // success - server still running
           Thread.sleep(50L);

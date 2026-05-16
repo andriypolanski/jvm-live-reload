@@ -14,6 +14,10 @@ object DevSettingsKeys {
   val LiveReloadGrpcPort: String = DevServerSettings.LiveReloadGrpcPort
   val LiveReloadHealthPath: String = DevServerSettings.LiveReloadHealthPath
   val LiveReloadGrpcHealthService: String = DevServerSettings.LiveReloadGrpcHealthService
+  val LiveReloadGrpcTargetTls: String = DevServerSettings.LiveReloadGrpcTargetTls
+  val LiveReloadGrpcTargetTlsTrust: String = DevServerSettings.LiveReloadGrpcTargetTlsTrust
+  val LiveReloadGrpcProxyTlsCert: String = DevServerSettings.LiveReloadGrpcProxyTlsCert
+  val LiveReloadGrpcProxyTlsKey: String = DevServerSettings.LiveReloadGrpcProxyTlsKey
   val LiveReloadIsDebug: String = DevServerSettings.LiveReloadIsDebug
   // format: on
 }

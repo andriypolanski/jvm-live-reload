@@ -64,39 +64,31 @@ object LiveReloadPlugin extends AutoPlugin {
         .asInstanceOf[Seq[Analysis]]
     ),
     liveHookBundle := SbtCompat.uncached(
-      (Compile / dependencyClasspath).value.collectFirst {
-        case lib if SbtCompat.fileName(lib.data).startsWith("zio-http") =>
-          ZioAppHookBundle
-        case lib if SbtCompat.fileName(lib.data).startsWith("http4s") =>
-          IoAppHookBundle
-        case lib if SbtCompat.fileName(lib.data).startsWith("cask") =>
-          CaskAppHookBundle
+      liveServerType.value match {
+        case GrpcServerType => Some(GrpcAppHookBundle)
+        case HttpServerType =>
+          (Compile / dependencyClasspath).value.collectFirst {
+            case lib if SbtCompat.fileName(lib.data).startsWith("zio-http") =>
+              ZioAppHookBundle
+            case lib if SbtCompat.fileName(lib.data).startsWith("http4s") =>
+              IoAppHookBundle
+            case lib if SbtCompat.fileName(lib.data).startsWith("cask") =>
+              CaskAppHookBundle
+          }
       }
     ),
-    liveStartupHooks := SbtCompat.uncached((liveHookBundle.value match {
+    liveStartupHooks := SbtCompat.uncached(liveHookBundle.value match {
       case Some(hookBundle) => hookBundle.startupHooks
-      case None             =>
-        liveServerType.value match {
-          case HttpServerType => Seq(HookClassnames.RestApiHealthCheckStartup)
-          case GrpcServerType => Seq(HookClassnames.GrpcHealthCheckStartup)
-        }
-    })),
-    liveShutdownHooks := SbtCompat.uncached((liveHookBundle.value match {
+      case None             => Seq(HookClassnames.RestApiHealthCheckStartup)
+    }),
+    liveShutdownHooks := SbtCompat.uncached(liveHookBundle.value match {
       case Some(hookBundle) => hookBundle.shutdownHooks
       case None             =>
-        liveServerType.value match {
-          case HttpServerType =>
-            Seq(
-              HookClassnames.ThreadInterruptShutdown,
-              HookClassnames.RestApiHealthCheckShutdown
-            )
-          case GrpcServerType =>
-            Seq(
-              HookClassnames.ThreadInterruptShutdown,
-              HookClassnames.GrpcHealthCheckShutdown
-            )
-        }
-    })),
+        Seq(
+          HookClassnames.ThreadInterruptShutdown,
+          HookClassnames.RestApiHealthCheckShutdown
+        )
+    }),
     livePropagateEnv := SbtCompat.uncached(Map.empty),
     Compile / bgRun := Commands.liveBgRunTask.evaluated,
     Compile / run := Commands.liveDefaultRunTask.map(_ => ()).evaluated,

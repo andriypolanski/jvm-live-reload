@@ -47,67 +47,35 @@ trait LiveReloadModule extends JavaModule {
   }
 
   def liveHookBundle: Task[Option[HookBundle]] = Task.Anon {
-    runClasspath().collectFirst {
-      case lib if lib.path.toIO.getName.startsWith("zio-http") || lib.path.toIO.getName.startsWith("zio") =>
-        ZioAppHookBundle
-      case lib if lib.path.toIO.getName.startsWith("cask") =>
-        CaskAppHookBundle
-      case lib if lib.path.toIO.getName.startsWith("http4s") || lib.path.toIO.getName.startsWith("cats-effect") =>
-        IoAppHookBundle
+    if (liveServerType() == GrpcServerType) {
+      Some(GrpcAppHookBundle)
+    } else {
+      runClasspath().collectFirst {
+        case lib if lib.path.toIO.getName.startsWith("zio-http") || lib.path.toIO.getName.startsWith("zio") =>
+          ZioAppHookBundle
+        case lib if lib.path.toIO.getName.startsWith("cask") =>
+          CaskAppHookBundle
+        case lib if lib.path.toIO.getName.startsWith("http4s") || lib.path.toIO.getName.startsWith("cats-effect") =>
+          IoAppHookBundle
+      }
     }
   }
 
   def liveStartupHooks: Task[Seq[String]] = Task.Anon {
-    val isGrpc = liveServerType() == GrpcServerType
     liveHookBundle() match {
-      case Some(hookBundle) => 
-        if (isGrpc) {
-          hookBundle.startupHooks.map { hook =>
-            if (hook == HookClassnames.RestApiHealthCheckStartup) {
-              HookClassnames.GrpcHealthCheckStartup
-            } else {
-              hook
-            }
-          }
-        } else {
-          hookBundle.startupHooks
-        }
-      case None             =>
-        if (isGrpc) {
-          Seq(HookClassnames.GrpcHealthCheckStartup)
-        } else {
-          Seq(HookClassnames.RestApiHealthCheckStartup)
-        }
+      case Some(hookBundle) => hookBundle.startupHooks
+      case None             => Seq(HookClassnames.RestApiHealthCheckStartup)
     }
   }
 
   def liveShutdownHooks: Task[Seq[String]] = Task.Anon {
-    val isGrpc = liveServerType() == GrpcServerType
     liveHookBundle() match {
-      case Some(hookBundle) => 
-        if (isGrpc) {
-          hookBundle.shutdownHooks.map { hook =>
-            if (hook == HookClassnames.RestApiHealthCheckShutdown) {
-              HookClassnames.GrpcHealthCheckShutdown
-            } else {
-              hook
-            }
-          }
-        } else {
-          hookBundle.shutdownHooks
-        }
+      case Some(hookBundle) => hookBundle.shutdownHooks
       case None             =>
-        if (isGrpc) {
-          Seq(
-            HookClassnames.ThreadInterruptShutdown,
-            HookClassnames.GrpcHealthCheckShutdown
-          )
-        } else {
-          Seq(
-            HookClassnames.ThreadInterruptShutdown,
-            HookClassnames.RestApiHealthCheckShutdown
-          )
-        }
+        Seq(
+          HookClassnames.ThreadInterruptShutdown,
+          HookClassnames.RestApiHealthCheckShutdown
+        )
     }
   }
 

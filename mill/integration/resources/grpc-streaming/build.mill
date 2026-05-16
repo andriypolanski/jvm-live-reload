@@ -1,0 +1,26 @@
+package build
+
+import me.seroperson.reload.live.mill.*
+import mill.*
+import mill.scalalib.*
+
+object app extends LiveReloadModule, ScalaModule {
+
+  override def scalaVersion = "2.13.16"
+  override def liveServerType = Task.Anon {
+    GrpcServerType
+  }
+  override def mvnDeps = super.mvnDeps() ++ Seq(
+    mvn"io.grpc:grpc-netty-shaded:1.72.0",
+    mvn"io.grpc:grpc-stub:1.72.0",
+    mvn"io.grpc:grpc-services:1.72.0"
+  )
+  override def liveDevSettings = Task.Anon {
+    Seq(
+      DevSettingsKeys.LiveReloadProxyGrpcPort -> "9000",
+      DevSettingsKeys.LiveReloadGrpcPort -> "8080",
+      DevSettingsKeys.LiveReloadIsDebug -> "true"
+    )
+  }
+
+}
