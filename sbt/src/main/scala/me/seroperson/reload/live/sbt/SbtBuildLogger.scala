@@ -26,7 +26,8 @@ private[sbt] class SbtBuildLogger(
 
   // Direct stderr stream that bypasses sbt's System.err replacement
   private val directErr = new java.io.PrintStream(
-    new java.io.FileOutputStream(java.io.FileDescriptor.out), true
+    new java.io.FileOutputStream(java.io.FileDescriptor.out),
+    true
   )
 
   override def debug(message: String): Unit = {

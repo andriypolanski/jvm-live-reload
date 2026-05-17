@@ -28,11 +28,11 @@ class LiveReloadGrpcMultiprojectTest : LiveReloadTestBase() {
 
     @Test
     fun `reload grpc multiproject when sibling module changes`() {
+        appCode.writeText(APP_CODE_1)
+        textCode.writeText(TEXT_CODE_1)
         settingsFile.writeText(SETTINGS_CONTENT)
         buildAFile.writeText(BUILD_A_CONTENT)
         buildBFile.writeText(BUILD_B_CONTENT)
-        appCode.writeText(APP_CODE)
-        textCode.writeText(TEXT_CODE_1)
 
         val runner = initGradleRunner(":project-a:liveReloadRun", projectDir)
         val isBuildRunning = AtomicBoolean(true)
@@ -60,6 +60,7 @@ class LiveReloadGrpcMultiprojectTest : LiveReloadTestBase() {
                 "Multi-Hi".toByteArray(),
             )
 
+        appCode.writeText(APP_CODE_2)
         textCode.writeText(TEXT_CODE_2)
 
         val reloaded =
@@ -70,7 +71,7 @@ class LiveReloadGrpcMultiprojectTest : LiveReloadTestBase() {
                 "greeter.Greeter",
                 "Greet",
                 byteArrayOf(),
-                "Multi-Yo".toByteArray(),
+                "Multi-Yo!".toByteArray(),
             )
 
         runThread.interrupt()
@@ -124,7 +125,10 @@ repositories {
 }
 """
 
-        const val APP_CODE =
+        val APP_CODE_1 = appCodeWithSuffix("")
+        val APP_CODE_2 = appCodeWithSuffix("!")
+
+        private fun appCodeWithSuffix(suffix: String): String =
             """
 import io.grpc.BindableService
 import io.grpc.MethodDescriptor
@@ -141,7 +145,7 @@ fun main() {
     val health = HealthStatusManager()
     val server = ServerBuilder
         .forPort(8081)
-        .addService(MultiGreeter(Greeting.response))
+        .addService(MultiGreeter(Greeting.response + "$suffix"))
         .addService(health.healthService)
         .build()
     try {

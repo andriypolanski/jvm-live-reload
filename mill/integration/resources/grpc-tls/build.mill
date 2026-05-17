@@ -16,17 +16,25 @@ object app extends LiveReloadModule, ScalaModule {
     mvn"io.grpc:grpc-stub:1.72.0",
     mvn"io.grpc:grpc-services:1.72.0"
   )
+  def certPath = Task.Anon { (BuildCtx.workspaceRoot / "cert.pem").toString }
+  def keyPath = Task.Anon { (BuildCtx.workspaceRoot / "key.pem").toString }
+
   override def liveDevSettings = Task.Anon {
-    val cert = (BuildCtx.workspaceRoot / "cert.pem").toString
-    val key = (BuildCtx.workspaceRoot / "key.pem").toString
     Seq(
       DevSettingsKeys.LiveReloadProxyGrpcPort -> "9000",
       DevSettingsKeys.LiveReloadGrpcPort -> "8080",
       DevSettingsKeys.LiveReloadGrpcTargetTls -> "true",
-      DevSettingsKeys.LiveReloadGrpcTargetTlsTrust -> cert,
-      DevSettingsKeys.LiveReloadGrpcProxyTlsCert -> cert,
-      DevSettingsKeys.LiveReloadGrpcProxyTlsKey -> key,
+      DevSettingsKeys.LiveReloadGrpcTargetTlsTrust -> certPath(),
+      DevSettingsKeys.LiveReloadGrpcProxyTlsCert -> certPath(),
+      DevSettingsKeys.LiveReloadGrpcProxyTlsKey -> keyPath(),
       DevSettingsKeys.LiveReloadIsDebug -> "true"
+    )
+  }
+
+  override def livePropagateEnv = Task.Anon {
+    Map(
+      "APP_TLS_CERT" -> certPath(),
+      "APP_TLS_KEY" -> keyPath()
     )
   }
 

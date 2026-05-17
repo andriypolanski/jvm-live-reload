@@ -38,7 +38,10 @@ class LiveReloadSpec extends LiveReloadBase {
       verifyHttp("greet", 200, Some("Hello World"), proxyPort)
       runner.delete("src/main/scala/App.scala")
       runner.copyFile("changes/NewApp.scala.1", "src/main/scala/NewApp.scala")
-      runner.copyFile("changes/NewClass.scala.1", "src/main/scala/NewClass.scala")
+      runner.copyFile(
+        "changes/NewClass.scala.1",
+        "src/main/scala/NewClass.scala"
+      )
       verifyHttp("greet_reloaded", 200, Some("World Hello 1"), proxyPort)
       verifyHttp("greet", 404, Some("Not found"), proxyPort)
     }
@@ -69,7 +72,10 @@ class LiveReloadSpec extends LiveReloadBase {
       runner.run("bgRun")
       verifyHttp("greet", 200, Some("Hello World 1"), proxyPort)
       runner.copyFile("changes/App.scala.1", "src/main/scala/App.scala")
-      runner.copyFile("changes/application.conf.1", "src/main/resources/application.conf")
+      runner.copyFile(
+        "changes/application.conf.1",
+        "src/main/resources/application.conf"
+      )
       verifyHttp("greet_reloaded", 200, Some("World Hello 2"), proxyPort)
       verifyHttp("greet", 404, Some("Not found"), proxyPort)
     }
@@ -80,7 +86,10 @@ class LiveReloadSpec extends LiveReloadBase {
       runner.run("bgRun")
       verifyHttp("greet", 200, Some("Hello World 1"), proxyPort)
       runner.copyFile("changes/App.scala.1", "src/main/scala/App.scala")
-      runner.copyFile("changes/application.conf.1", "src/main/resources/application.conf")
+      runner.copyFile(
+        "changes/application.conf.1",
+        "src/main/resources/application.conf"
+      )
       verifyHttp("greet_reloaded", 200, Some("World Hello 2"), proxyPort)
       verifyHttp("greet", 404, port = proxyPort)
     }
@@ -90,8 +99,14 @@ class LiveReloadSpec extends LiveReloadBase {
     withRunner("zio-http-multiproject") { (runner, proxyPort) =>
       runner.run("project-a/bgRun")
       verifyHttp("greet", 200, Some("Hello World"), proxyPort)
-      runner.copyFile("changes/App.scala.1", "project-a/src/main/scala/App.scala")
-      runner.copyFile("changes/Text.scala.1", "project-b/src/main/scala/Text.scala")
+      runner.copyFile(
+        "changes/App.scala.1",
+        "project-a/src/main/scala/App.scala"
+      )
+      runner.copyFile(
+        "changes/Text.scala.1",
+        "project-b/src/main/scala/Text.scala"
+      )
       verifyHttp("greet_reloaded", 200, Some("World Hello!"), proxyPort)
       verifyHttp("greet", 404, port = proxyPort)
     }

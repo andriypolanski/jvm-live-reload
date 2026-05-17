@@ -143,7 +143,7 @@ object `mill-live-reload` extends ScalaModule, CorePublishModule, BuildInfo {
       mvn"io.grpc:grpc-netty-shaded:1.72.0",
       mvn"io.grpc:grpc-stub:1.72.0",
       mvn"io.grpc:grpc-protobuf:1.72.0",
-      mvn"io.grpc:grpc-services:1.72.0",
+      mvn"io.grpc:grpc-services:1.72.0"
     )
 
     override def resources: T[Seq[PathRef]] = Task {

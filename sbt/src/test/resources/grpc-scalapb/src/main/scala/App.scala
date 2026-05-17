@@ -1,8 +1,8 @@
+import greeter._
 import io.grpc.health.v1.HealthCheckResponse
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.HealthStatusManager
 import scala.concurrent.ExecutionContext
-import greeter._
 
 object App {
   def main(args: Array[String]): Unit = {
@@ -30,7 +30,9 @@ object App {
 }
 
 class GreeterImpl extends GreeterGrpc.Greeter {
-  override def sayHello(request: HelloRequest): scala.concurrent.Future[HelloReply] = {
+  override def sayHello(
+      request: HelloRequest
+  ): scala.concurrent.Future[HelloReply] = {
     scala.concurrent.Future.successful(
       HelloReply(message = s"World Hello!")
     )

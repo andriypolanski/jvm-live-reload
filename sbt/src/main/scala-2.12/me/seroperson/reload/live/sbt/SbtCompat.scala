@@ -41,8 +41,8 @@ object SbtCompat {
 
   def fileName(file: FileRef): String = file.getName
 
-  /** sbt 1.x already uses directories for exportedProducts, so we keep
-    * the same behavior as the original liveReloaderClasspath.
+  /** sbt 1.x already uses directories for exportedProducts, so we keep the same
+    * behavior as the original liveReloaderClasspath.
     */
   def reloaderClasspathTask: Def.Initialize[Task[Classpath]] = Def.task {
     Classpaths

@@ -175,7 +175,12 @@ abstract class LiveReloadTestBase {
                     .build()
 
             val iterator =
-                ClientCalls.blockingServerStreamingCall(channel, methodDescriptor, CallOptions.DEFAULT, request)
+                ClientCalls.blockingServerStreamingCall(
+                    channel,
+                    methodDescriptor,
+                    CallOptions.DEFAULT,
+                    request,
+                )
             val collected = mutableListOf<ByteArray>()
             iterator.forEachRemaining { collected.add(it) }
             return collected
@@ -292,24 +297,32 @@ abstract class LiveReloadTestBase {
         host: String,
         port: Int,
     ): Set<String> {
-        val channel: ManagedChannel = ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
+        val channel: ManagedChannel =
+            ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
         try {
             val future = CompletableFuture<ServerReflectionResponse>()
-            val responseObserver = object : StreamObserver<ServerReflectionResponse> {
-                override fun onNext(value: ServerReflectionResponse) {
-                    future.complete(value)
-                }
+            val responseObserver =
+                object : StreamObserver<ServerReflectionResponse> {
+                    override fun onNext(value: ServerReflectionResponse) {
+                        future.complete(value)
+                    }
 
-                override fun onError(t: Throwable) {
-                    future.completeExceptionally(t)
-                }
+                    override fun onError(t: Throwable) {
+                        future.completeExceptionally(t)
+                    }
 
-                override fun onCompleted() {}
-            }
-            val requestObserver = ServerReflectionGrpc.newStub(channel).serverReflectionInfo(responseObserver)
+                    override fun onCompleted() {}
+                }
+            val requestObserver =
+                ServerReflectionGrpc.newStub(channel).serverReflectionInfo(responseObserver)
             requestObserver.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
             requestObserver.onCompleted()
-            return future.get(10, TimeUnit.SECONDS).listServicesResponse.serviceList.map { it.name }.toSet()
+            return future
+                .get(10, TimeUnit.SECONDS)
+                .listServicesResponse
+                .serviceList
+                .map { it.name }
+                .toSet()
         } finally {
             channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)
         }

@@ -133,13 +133,15 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
       // debugLog = true
     )
 
-    var process = tester.spawn(
-      cmd = "app.liveReloadRun",
-      env = Map("PLUGIN_VERSION" -> BuildInfo.version),
-      stdout = ProcessOutput.Readlines(v => println(v)),
-      stderr = os.Pipe,
-      mergeErrIntoOut = true
-    ).process
+    var process = tester
+      .spawn(
+        cmd = "app.liveReloadRun",
+        env = Map("PLUGIN_VERSION" -> BuildInfo.version),
+        stdout = ProcessOutput.Readlines(v => println(v)),
+        stderr = os.Pipe,
+        mergeErrIntoOut = true
+      )
+      .process
 
     val greet = runUntil("http://localhost:9000/greet", 200, "Hello World 1")
     tester.modifyFile(
@@ -241,7 +243,11 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
       "greeter.Greeter",
       "StreamGreet",
       Array.emptyByteArray,
-      Seq("Hi-1".getBytes("UTF-8"), "Hi-2".getBytes("UTF-8"), "Hi-3".getBytes("UTF-8"))
+      Seq(
+        "Hi-1".getBytes("UTF-8"),
+        "Hi-2".getBytes("UTF-8"),
+        "Hi-3".getBytes("UTF-8")
+      )
     )
     tester.modifyFile(
       tester.workspacePath / "app" / "src" / "App.scala",
@@ -253,7 +259,11 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
       "greeter.Greeter",
       "StreamGreet",
       Array.emptyByteArray,
-      Seq("Yo-1".getBytes("UTF-8"), "Yo-2".getBytes("UTF-8"), "Yo-3".getBytes("UTF-8"))
+      Seq(
+        "Yo-1".getBytes("UTF-8"),
+        "Yo-2".getBytes("UTF-8"),
+        "Yo-3".getBytes("UTF-8")
+      )
     )
 
     tester.close()
@@ -292,8 +302,16 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
       "Multi-Hi".getBytes("UTF-8")
     )
     tester.modifyFile(
+      tester.workspacePath / "project-a" / "src" / "App.scala",
+      _ =>
+        os.read(resourceDir / "changes" / "project-a" / "src" / "App.scala.1")
+    )
+    tester.modifyFile(
       tester.workspacePath / "project-b" / "src" / "Greeting.scala",
-      _ => os.read(resourceDir / "changes" / "project-b" / "src" / "Greeting.scala.1")
+      _ =>
+        os.read(
+          resourceDir / "changes" / "project-b" / "src" / "Greeting.scala.1"
+        )
     )
     val reloaded = runGrpcUntil(
       "localhost",
@@ -301,7 +319,7 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
       "greeter.Greeter",
       "Greet",
       Array.emptyByteArray,
-      "Multi-Yo".getBytes("UTF-8")
+      "Multi-Yo!".getBytes("UTF-8")
     )
 
     tester.close()
@@ -379,7 +397,8 @@ class IntegrationTests extends AnyFunSuite with RequestMaker {
     })
     runThread.start()
 
-    val ok = runReflectionListServicesUntil("localhost", 9000, "grpc.health.v1.Health")
+    val ok =
+      runReflectionListServicesUntil("localhost", 9000, "grpc.health.v1.Health")
 
     tester.close()
 

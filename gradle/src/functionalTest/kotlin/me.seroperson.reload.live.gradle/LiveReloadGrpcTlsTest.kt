@@ -31,7 +31,7 @@ class LiveReloadGrpcTlsTest : LiveReloadTestBase() {
 
         settingsFile.writeText(SETTINGS_CONTENT)
         buildFile.writeText(buildScript(cert, key))
-        appCode.writeText(appCodeWithResponse("Secure-Hi"))
+        appCode.writeText(appCodeWithResponse("Secure-Hi", cert, key))
 
         val runner = initGradleRunner(":liveReloadRun", projectDir)
         val isBuildRunning = AtomicBoolean(true)
@@ -60,7 +60,7 @@ class LiveReloadGrpcTlsTest : LiveReloadTestBase() {
                 cert,
             )
 
-        appCode.writeText(appCodeWithResponse("Secure-Yo"))
+        appCode.writeText(appCodeWithResponse("Secure-Yo", cert, key))
 
         val reloaded =
             runGrpcTlsUntil(
@@ -87,8 +87,15 @@ class LiveReloadGrpcTlsTest : LiveReloadTestBase() {
             .replace("__CERT__", cert.absolutePath.replace("\\", "\\\\"))
             .replace("__KEY__", key.absolutePath.replace("\\", "\\\\"))
 
-    private fun appCodeWithResponse(response: String): String =
-        APP_CODE_TEMPLATE.replace("__RESPONSE__", response)
+    private fun appCodeWithResponse(
+        response: String,
+        cert: File,
+        key: File,
+    ): String =
+        APP_CODE_TEMPLATE
+            .replace("__RESPONSE__", response)
+            .replace("__CERT__", cert.absolutePath.replace("\\", "\\\\"))
+            .replace("__KEY__", key.absolutePath.replace("\\", "\\\\"))
 
     companion object {
         const val SETTINGS_CONTENT = ""
@@ -143,19 +150,16 @@ import java.io.File
 import java.io.InputStream
 
 fun main() {
-    val cert = System.getProperty("live.reload.grpc.proxy.tls.cert")
-    val key = System.getProperty("live.reload.grpc.proxy.tls.key")
-    val port = System.getProperty("live.reload.grpc.port").toInt()
-    val credentials = TlsServerCredentials.create(File(cert), File(key))
+    val credentials = TlsServerCredentials.create(File("__CERT__"), File("__KEY__"))
     val health = HealthStatusManager()
-    val server = Grpc.newServerBuilderForPort(port, credentials)
+    val server = Grpc.newServerBuilderForPort(8081, credentials)
         .addService(GreeterService("__RESPONSE__"))
         .addService(health.healthService)
         .build()
     try {
         server.start()
         health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
-        println("TLS Server started on port ${'$'}port")
+        println("TLS Server started on port 8081")
         Thread.currentThread().join()
     } catch (ex: InterruptedException) {
         health.setStatus("", HealthCheckResponse.ServingStatus.NOT_SERVING)

@@ -130,16 +130,23 @@ trait RequestMaker {
     }
   }
 
-  private def openChannel(host: String, port: Int, tlsTrust: Option[File]): ManagedChannel =
+  private def openChannel(
+      host: String,
+      port: Int,
+      tlsTrust: Option[File]
+  ): ManagedChannel =
     tlsTrust match {
       case Some(trust) =>
-        val credentials = TlsChannelCredentials.newBuilder().trustManager(trust).build()
+        val credentials =
+          TlsChannelCredentials.newBuilder().trustManager(trust).build()
         Grpc.newChannelBuilderForAddress(host, port, credentials).build()
       case None =>
         ManagedChannelBuilder.forAddress(host, port).usePlaintext().build()
     }
 
-  /** Runs a server-streaming GRPC call until the collected messages match the expected ones. */
+  /** Runs a server-streaming GRPC call until the collected messages match the
+    * expected ones.
+    */
   def runServerStreamingUntil(
       host: String,
       port: Int,
@@ -150,7 +157,14 @@ trait RequestMaker {
       tlsTrust: Option[File] = None
   ): Boolean = {
     try {
-      val collected = serverStreamingCall(host, port, serviceName, methodName, request, tlsTrust)
+      val collected = serverStreamingCall(
+        host,
+        port,
+        serviceName,
+        methodName,
+        request,
+        tlsTrust
+      )
       val match_ = collected.size == expected.size &&
         collected.zip(expected).forall { case (a, b) => a.sameElements(b) }
       if (match_) return true
@@ -162,10 +176,19 @@ trait RequestMaker {
         println(s"GRPC streaming exception: ${ex.getMessage}")
     }
     Thread.sleep(500)
-    runServerStreamingUntil(host, port, serviceName, methodName, request, expected, tlsTrust)
+    runServerStreamingUntil(
+      host,
+      port,
+      serviceName,
+      methodName,
+      request,
+      expected,
+      tlsTrust
+    )
   }
 
-  /** Runs a unary GRPC call over TLS until the expected response is received. */
+  /** Runs a unary GRPC call over TLS until the expected response is received.
+    */
   def runGrpcTlsUntil(
       host: String,
       port: Int,
@@ -176,15 +199,26 @@ trait RequestMaker {
       trust: File
   ): Boolean = {
     try {
-      val response = grpcCall(host, port, serviceName, methodName, request, Some(trust))
+      val response =
+        grpcCall(host, port, serviceName, methodName, request, Some(trust))
       if (response.sameElements(expectedResponse)) return true
-      println(s"TLS GRPC mismatch, got ${response.map("%02x".format(_)).mkString}")
+      println(
+        s"TLS GRPC mismatch, got ${response.map("%02x".format(_)).mkString}"
+      )
     } catch {
       case ex: Exception =>
         println(s"TLS GRPC exception: ${ex.getMessage}")
     }
     Thread.sleep(500)
-    runGrpcTlsUntil(host, port, serviceName, methodName, request, expectedResponse, trust)
+    runGrpcTlsUntil(
+      host,
+      port,
+      serviceName,
+      methodName,
+      request,
+      expectedResponse,
+      trust
+    )
   }
 
   private def serverStreamingCall(
@@ -207,14 +241,20 @@ trait RequestMaker {
           .build()
 
       val iterator =
-        ClientCalls.blockingServerStreamingCall(channel, methodDescriptor, CallOptions.DEFAULT, request)
+        ClientCalls.blockingServerStreamingCall(
+          channel,
+          methodDescriptor,
+          CallOptions.DEFAULT,
+          request
+        )
       iterator.asScala.toList
     } finally {
       channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)
     }
   }
 
-  /** Lists services via the bidi-streaming reflection method through the proxy. */
+  /** Lists services via the bidi-streaming reflection method through the proxy.
+    */
   def runReflectionListServicesUntil(
       host: String,
       port: Int,
@@ -238,15 +278,24 @@ trait RequestMaker {
     try {
       val promise = Promise[ServerReflectionResponse]()
       val responseObserver = new StreamObserver[ServerReflectionResponse] {
-        override def onNext(value: ServerReflectionResponse): Unit = promise.trySuccess(value)
+        override def onNext(value: ServerReflectionResponse): Unit =
+          promise.trySuccess(value)
         override def onError(t: Throwable): Unit = promise.tryFailure(t)
         override def onCompleted(): Unit = ()
       }
       val stub = ServerReflectionGrpc.newStub(channel)
       val requestObserver = stub.serverReflectionInfo(responseObserver)
-      requestObserver.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
+      requestObserver.onNext(
+        ServerReflectionRequest.newBuilder().setListServices("").build()
+      )
       requestObserver.onCompleted()
-      Await.result(promise.future, 10.seconds).getListServicesResponse.getServiceList.asScala.map(_.getName).toSet
+      Await
+        .result(promise.future, 10.seconds)
+        .getListServicesResponse
+        .getServiceList
+        .asScala
+        .map(_.getName)
+        .toSet
     } finally {
       channel.shutdownNow().awaitTermination(5, TimeUnit.SECONDS)
     }
@@ -261,4 +310,3 @@ trait RequestMaker {
     override def parse(stream: InputStream): Array[Byte] = stream.readAllBytes()
   }
 }
-

@@ -1,13 +1,17 @@
 package me.seroperson.reload.live
 
 import java.net.URI
-import java.net.http.{HttpClient, HttpRequest, HttpResponse}
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.time.Duration
 import me.seroperson.reload.live.sbt.BuildInfo
 import me.seroperson.sbt.testkit.*
 import org.scalatest.funsuite.AnyFunSuite
 import scala.annotation.tailrec
-import scala.util.{Failure, Success, Try}
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 trait LiveReloadBase extends AnyFunSuite {
 
@@ -98,7 +102,7 @@ trait LiveReloadBase extends AnyFunSuite {
         }
       }
       result match {
-        case Success(_) => ()
+        case Success(_)                  => ()
         case Failure(_) if remaining > 0 =>
           Thread.sleep(RetryInterval)
           attempt(remaining - 1)

@@ -29,8 +29,10 @@ trait LiveReloadModule extends JavaModule {
   override def mvnDeps =
     super.mvnDeps() ++ {
       val webserverDep = liveServerType() match {
-        case HttpServerType => mvn"me.seroperson:jvm-live-reload-webserver:${BuildInfo.version}"
-        case GrpcServerType => mvn"me.seroperson:jvm-live-reload-webserver-grpc:${BuildInfo.version}"
+        case HttpServerType =>
+          mvn"me.seroperson:jvm-live-reload-webserver:${BuildInfo.version}"
+        case GrpcServerType =>
+          mvn"me.seroperson:jvm-live-reload-webserver-grpc:${BuildInfo.version}"
       }
       Seq(
         webserverDep,
@@ -51,11 +53,17 @@ trait LiveReloadModule extends JavaModule {
       Some(GrpcAppHookBundle)
     } else {
       runClasspath().collectFirst {
-        case lib if lib.path.toIO.getName.startsWith("zio-http") || lib.path.toIO.getName.startsWith("zio") =>
+        case lib
+            if lib.path.toIO.getName.startsWith(
+              "zio-http"
+            ) || lib.path.toIO.getName.startsWith("zio") =>
           ZioAppHookBundle
         case lib if lib.path.toIO.getName.startsWith("cask") =>
           CaskAppHookBundle
-        case lib if lib.path.toIO.getName.startsWith("http4s") || lib.path.toIO.getName.startsWith("cats-effect") =>
+        case lib
+            if lib.path.toIO.getName.startsWith(
+              "http4s"
+            ) || lib.path.toIO.getName.startsWith("cats-effect") =>
           IoAppHookBundle
       }
     }
@@ -122,8 +130,10 @@ trait LiveReloadModule extends JavaModule {
     )
 
     val mainClassName = liveServerType() match {
-      case HttpServerType => "me.seroperson.reload.live.webserver.DevServerStart"
-      case GrpcServerType => "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
+      case HttpServerType =>
+        "me.seroperson.reload.live.webserver.DevServerStart"
+      case GrpcServerType =>
+        "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
     }
 
     val params = new StartParams(

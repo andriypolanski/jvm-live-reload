@@ -1,16 +1,30 @@
 package me.seroperson.reload.live
 
-import io.grpc.{CallOptions, Grpc, ManagedChannel, ManagedChannelBuilder, MethodDescriptor, TlsChannelCredentials}
-import io.grpc.MethodDescriptor.{Marshaller, MethodType}
-import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionRequest, ServerReflectionResponse}
-import io.grpc.stub.{ClientCalls, StreamObserver}
-import java.io.{ByteArrayInputStream, File, InputStream}
+import io.grpc.CallOptions
+import io.grpc.Grpc
+import io.grpc.ManagedChannel
+import io.grpc.ManagedChannelBuilder
+import io.grpc.MethodDescriptor
+import io.grpc.MethodDescriptor.Marshaller
+import io.grpc.MethodDescriptor.MethodType
+import io.grpc.TlsChannelCredentials
+import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.reflection.v1alpha.ServerReflectionRequest
+import io.grpc.reflection.v1alpha.ServerReflectionResponse
+import io.grpc.stub.ClientCalls
+import io.grpc.stub.StreamObserver
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.io.InputStream
 import java.util.concurrent.{TimeUnit => JTimeUnit}
 import scala.annotation.tailrec
-import scala.concurrent.{Await, Promise}
+import scala.concurrent.Await
+import scala.concurrent.Promise
 import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
-import scala.util.{Failure, Success, Try}
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 class GrpcLiveReloadSpec extends LiveReloadBase {
 
@@ -63,7 +77,7 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
         }
       }
       result match {
-        case Success(_) => ()
+        case Success(_)                  => ()
         case Failure(_) if remaining > 0 =>
           Thread.sleep(RetryInterval)
           attempt(remaining - 1)
@@ -78,13 +92,18 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
     attempt(MaxRetries)
   }
 
-  private def openChannel(port: Int, tlsTrust: Option[File]): ManagedChannel = tlsTrust match {
-    case Some(trust) =>
-      val credentials = TlsChannelCredentials.newBuilder().trustManager(trust).build()
-      Grpc.newChannelBuilderForAddress("localhost", port, credentials).build()
-    case None =>
-      ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
-  }
+  private def openChannel(port: Int, tlsTrust: Option[File]): ManagedChannel =
+    tlsTrust match {
+      case Some(trust) =>
+        val credentials =
+          TlsChannelCredentials.newBuilder().trustManager(trust).build()
+        Grpc.newChannelBuilderForAddress("localhost", port, credentials).build()
+      case None =>
+        ManagedChannelBuilder
+          .forAddress("localhost", port)
+          .usePlaintext()
+          .build()
+    }
 
   private def verifyServerStreaming(
       service: String,
@@ -119,7 +138,7 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
         }
       }
       result match {
-        case Success(_) => ()
+        case Success(_)                  => ()
         case Failure(_) if remaining > 0 =>
           Thread.sleep(RetryInterval)
           attempt(remaining - 1)
@@ -167,7 +186,7 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
         }
       }
       result match {
-        case Success(_) => ()
+        case Success(_)                  => ()
         case Failure(_) if remaining > 0 =>
           Thread.sleep(RetryInterval)
           attempt(remaining - 1)
@@ -208,19 +227,29 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
   }
 
   private def listServicesViaReflection(port: Int): Set[String] = {
-    val channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
+    val channel =
+      ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
     try {
       val promise = Promise[ServerReflectionResponse]()
       val responseObserver = new StreamObserver[ServerReflectionResponse] {
-        override def onNext(value: ServerReflectionResponse): Unit = promise.trySuccess(value)
+        override def onNext(value: ServerReflectionResponse): Unit =
+          promise.trySuccess(value)
         override def onError(t: Throwable): Unit = promise.tryFailure(t)
         override def onCompleted(): Unit = ()
       }
       val stub = ServerReflectionGrpc.newStub(channel)
       val requestObserver = stub.serverReflectionInfo(responseObserver)
-      requestObserver.onNext(ServerReflectionRequest.newBuilder().setListServices("").build())
+      requestObserver.onNext(
+        ServerReflectionRequest.newBuilder().setListServices("").build()
+      )
       requestObserver.onCompleted()
-      Await.result(promise.future, 10.seconds).getListServicesResponse.getServiceList.asScala.map(_.getName).toSet
+      Await
+        .result(promise.future, 10.seconds)
+        .getListServicesResponse
+        .getServiceList
+        .asScala
+        .map(_.getName)
+        .toSet
     } finally {
       channel.shutdownNow().awaitTermination(5, JTimeUnit.SECONDS)
     }
@@ -232,12 +261,15 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
       @tailrec
       def attempt(remaining: Int): Set[String] = {
         Try(listServicesViaReflection(proxyPort)) match {
-          case Success(services) => services
+          case Success(services)           => services
           case Failure(_) if remaining > 0 =>
             Thread.sleep(RetryInterval)
             attempt(remaining - 1)
           case Failure(ex) =>
-            throw new AssertionError(s"Reflection failed after $MaxRetries attempts: ${ex.getMessage}", ex)
+            throw new AssertionError(
+              s"Reflection failed after $MaxRetries attempts: ${ex.getMessage}",
+              ex
+            )
         }
       }
       val services = attempt(MaxRetries)
@@ -279,8 +311,14 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
         bytesToHex("Multi-Hi".getBytes("UTF-8")),
         proxyPort
       )
-      runner.copyFile("changes/App.scala.1", "project-a/src/main/scala/App.scala")
-      runner.copyFile("changes/Greeting.scala.1", "project-b/src/main/scala/Greeting.scala")
+      runner.copyFile(
+        "changes/App.scala.1",
+        "project-a/src/main/scala/App.scala"
+      )
+      runner.copyFile(
+        "changes/Greeting.scala.1",
+        "project-b/src/main/scala/Greeting.scala"
+      )
       verifyGrpc(
         "greeter.Greeter",
         "Greet",

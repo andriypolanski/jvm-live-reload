@@ -54,9 +54,9 @@ object SbtCompat:
 
   inline def fileName(file: FileRef): String = file.name
 
-  /** In sbt 2.x, exportedProducts returns JARs from disk cache.
-    * For live reload, we need the raw class/resource directories
-    * so that file-level changes can be detected.
+  /** In sbt 2.x, exportedProducts returns JARs from disk cache. For live
+    * reload, we need the raw class/resource directories so that file-level
+    * changes can be detected.
     */
   def reloaderClasspathTask: Def.Initialize[Task[Classpath]] = Def.task {
     // Trigger resource copying so classDirectory has fresh resources

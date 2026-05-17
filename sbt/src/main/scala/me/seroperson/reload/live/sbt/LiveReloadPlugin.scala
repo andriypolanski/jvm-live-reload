@@ -36,8 +36,10 @@ object LiveReloadPlugin extends AutoPlugin {
     liveServerType := HttpServerType,
     libraryDependencies ++= {
       val webserverDep = liveServerType.value match {
-        case HttpServerType => "me.seroperson" % "jvm-live-reload-webserver" % BuildInfo.version
-        case GrpcServerType => "me.seroperson" % "jvm-live-reload-webserver-grpc" % BuildInfo.version
+        case HttpServerType =>
+          "me.seroperson" % "jvm-live-reload-webserver" % BuildInfo.version
+        case GrpcServerType =>
+          "me.seroperson" % "jvm-live-reload-webserver-grpc" % BuildInfo.version
       }
       Seq(
         webserverDep,
@@ -92,9 +94,13 @@ object LiveReloadPlugin extends AutoPlugin {
     livePropagateEnv := SbtCompat.uncached(Map.empty),
     Compile / bgRun := Commands.liveBgRunTask.evaluated,
     Compile / run := Commands.liveDefaultRunTask.map(_ => ()).evaluated,
-    Compile / run / mainClass := SbtCompat.uncached(Some(liveServerType.value match {
-      case HttpServerType => "me.seroperson.reload.live.webserver.DevServerStart"
-      case GrpcServerType => "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
-    }))
+    Compile / run / mainClass := SbtCompat.uncached(
+      Some(liveServerType.value match {
+        case HttpServerType =>
+          "me.seroperson.reload.live.webserver.DevServerStart"
+        case GrpcServerType =>
+          "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
+      })
+    )
   )
 }

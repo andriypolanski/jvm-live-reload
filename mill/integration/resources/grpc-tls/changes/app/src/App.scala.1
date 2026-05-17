@@ -12,21 +12,17 @@ object App {
   private val Response = "Secure-Yo"
 
   def main(args: Array[String]): Unit = {
-    val cert = sys.props("live.reload.grpc.proxy.tls.cert")
-    val key = sys.props("live.reload.grpc.proxy.tls.key")
-    val port = sys.props("live.reload.grpc.port").toInt
-
     val health = new HealthStatusManager()
     val server = NettyServerBuilder
-      .forPort(port)
-      .useTransportSecurity(new File(cert), new File(key))
+      .forPort(8080)
+      .useTransportSecurity(new File(sys.env("APP_TLS_CERT")), new File(sys.env("APP_TLS_KEY")))
       .addService(new TlsGreeter(Response))
       .addService(health.getHealthService)
       .build()
       .start()
 
     health.setStatus("", HealthCheckResponse.ServingStatus.SERVING)
-    println(s"TLS Server started on port $port")
+    println(s"TLS Server started on port 8080")
 
     try {
       server.awaitTermination()

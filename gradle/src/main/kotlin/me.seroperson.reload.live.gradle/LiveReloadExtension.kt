@@ -34,7 +34,8 @@ abstract class LiveReloadExtension(
     private fun defaultStartupHooksFor(type: ServerType): List<String> =
         when (type) {
             ServerType.HTTP -> listOf("me.seroperson.reload.live.hook.RestApiHealthCheckStartupHook")
-            ServerType.GRPC -> listOf("me.seroperson.reload.live.webserver.grpc.hook.GrpcHealthCheckStartupHook")
+            ServerType.GRPC ->
+                listOf("me.seroperson.reload.live.webserver.grpc.hook.GrpcHealthCheckStartupHook")
         }
 
     private fun defaultShutdownHooksFor(type: ServerType): List<String> =

@@ -67,7 +67,7 @@ object LiveKeys {
     taskKey[Map[String, String]](
       "Propagates environment variables to a reloadable application."
     )
-  
+
   val liveServerType =
     settingKey[ServerType]("Server type: HTTP or GRPC.")
 

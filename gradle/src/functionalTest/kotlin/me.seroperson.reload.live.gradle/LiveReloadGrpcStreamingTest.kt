@@ -70,8 +70,7 @@ class LiveReloadGrpcStreamingTest : LiveReloadTestBase() {
         assertTrue(initial && reloaded)
     }
 
-    private fun appCodeWithPrefix(prefix: String): String =
-        APP_CODE_TEMPLATE.replace("__PREFIX__", prefix)
+    private fun appCodeWithPrefix(prefix: String): String = APP_CODE_TEMPLATE.replace("__PREFIX__", prefix)
 
     companion object {
         const val SETTINGS_CONTENT = ""

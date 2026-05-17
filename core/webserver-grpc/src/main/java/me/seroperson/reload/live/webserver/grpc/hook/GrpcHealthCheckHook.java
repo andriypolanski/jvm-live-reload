@@ -78,7 +78,10 @@ interface GrpcHealthCheckHook extends Hook {
       return TlsChannelCredentials.newBuilder().trustManager(new File(trustPath)).build();
     } catch (IOException e) {
       throw new UnrecoverableException(
-          "Failed to read GRPC target TLS trust material from " + trustPath + ": " + e.getMessage());
+          "Failed to read GRPC target TLS trust material from "
+              + trustPath
+              + ": "
+              + e.getMessage());
     }
   }
 }
