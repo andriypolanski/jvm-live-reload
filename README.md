@@ -364,7 +364,7 @@ First, let's check the list of available options:
 
 | Key                                 | Environment                         | Default     | Description                                                                                                                                         |
 | ----------------------------------- | ----------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `live.reload.proxy.http.host`       | `LIVE_RELOAD_PROXY_HTTP_HOST`       | `0.0.0.0`   | The host for the proxy to start on                                                                                                                  |
+| `live.reload.proxy.http.host`       | `LIVE_RELOAD_PROXY_HTTP_HOST`       | `localhost` | The host for the proxy to start on                                                                                                                  |
 | `live.reload.proxy.http.port`       | `LIVE_RELOAD_PROXY_HTTP_PORT`       | `9000`      | The port for the proxy to listen on                                                                                                                 |
 | `live.reload.http.host`             | `LIVE_RELOAD_HTTP_HOST`             | `localhost` | The host on which your web application starts                                                                                                       |
 | `live.reload.http.port`             | `LIVE_RELOAD_HTTP_PORT`             | `8080`      | The port your web application listens on                                                                                                            |

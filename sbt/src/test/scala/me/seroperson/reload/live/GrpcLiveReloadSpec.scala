@@ -292,6 +292,33 @@ class GrpcLiveReloadSpec extends LiveReloadBase {
     }
   }
 
+  testEach(
+    "grpc-scala3 - proxy respects configured listen host",
+    versions = Seq("1.12.3")
+  ) { sbtVersion =>
+    withRunner(
+      "grpc-scala3",
+      sbtVersion,
+      extraJvmOptions = Seq("-Dlive.reload.proxy.grpc.host=127.0.0.1")
+    ) { (runner, proxyPort) =>
+      val externalAddress = nonLoopbackAddress()
+      assume(
+        externalAddress.nonEmpty,
+        "no non-loopback address available for bind-address verification"
+      )
+
+      runner.run("bgRun")
+      verifyGrpc(
+        "greeter.Greeter",
+        "Greet",
+        "",
+        bytesToHex("Scala3-Hi".getBytes("UTF-8")),
+        proxyPort
+      )
+      verifyPortClosed(proxyPort, externalAddress.get)
+    }
+  }
+
   testEach("grpc-tls - live reload through full TLS proxy and backend") {
     sbtVersion =>
       withRunner("grpc-tls", sbtVersion) { (runner, proxyPort) =>

@@ -1,12 +1,13 @@
 package me.seroperson.reload.live.webserver.grpc;
 
-import io.grpc.Grpc;
 import io.grpc.InsecureServerCredentials;
 import io.grpc.Server;
 import io.grpc.ServerCredentials;
 import io.grpc.TlsServerCredentials;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.List;
 import me.seroperson.reload.live.BaseDevServerStart;
 import me.seroperson.reload.live.UnrecoverableException;
@@ -64,14 +65,18 @@ public class GrpcDevServerStart extends BaseDevServerStart<Server> {
     boolean proxyTls = !(proxyCredentials instanceof InsecureServerCredentials);
 
     try {
+      var proxyAddress =
+          new InetSocketAddress(settings.getProxyGrpcHost(), settings.getProxyGrpcPort());
       proxyServer =
-          Grpc.newServerBuilderForPort(settings.getProxyGrpcPort(), proxyCredentials)
+          NettyServerBuilder.forAddress(proxyAddress, proxyCredentials)
               .fallbackHandlerRegistry(new GrpcProxyHandlerRegistry(logger, proxyHandler))
               .build()
               .start();
 
       logger.info(
-          "🚀 GRPC proxy server started on port "
+          "🚀 GRPC proxy server started on "
+              + settings.getProxyGrpcHost()
+              + ":"
               + settings.getProxyGrpcPort()
               + (proxyTls ? " (TLS)" : "")
               + " -> "
