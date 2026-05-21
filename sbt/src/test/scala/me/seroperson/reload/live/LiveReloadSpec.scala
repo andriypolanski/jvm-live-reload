@@ -32,6 +32,14 @@ class LiveReloadSpec extends LiveReloadBase {
     }
   }
 
+  testEach("startup crash before bind returns HTTP 503") { sbtVersion =>
+    withRunner("startup-crash", sbtVersion) { (runner, proxyPort) =>
+      runner.run("bgRun")
+      verifyHttp("greet", 503, Some("dev server stopped"), proxyPort)
+      verifyPortClosed(proxyPort)
+    }
+  }
+
   testEach(
     "cask - hung main thread triggers unrecoverable shutdown",
     Seq("2.0.0-RC10")
