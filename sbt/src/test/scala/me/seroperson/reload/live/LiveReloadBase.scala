@@ -118,7 +118,9 @@ trait LiveReloadBase extends AnyFunSuite {
       .find(address => !address.isLoopbackAddress && !address.isAnyLocalAddress)
       .map(_.getHostAddress)
 
-  /** Issues concurrent GET requests and expects each to succeed within the reload timeout. */
+  /** Issues concurrent GET requests and expects each to succeed within the
+    * reload timeout.
+    */
   protected def verifyHttpConcurrent(
       paths: Seq[String],
       expectedStatus: Int,
@@ -129,7 +131,9 @@ trait LiveReloadBase extends AnyFunSuite {
     try {
       val futures = paths.map { path =>
         executor.submit(() =>
-          pollUntil(s"HTTP /$path (status=$expectedStatus, body=$expectedBody)") {
+          pollUntil(
+            s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
+          ) {
             val request = HttpRequest
               .newBuilder()
               .uri(URI.create(s"http://localhost:$port/$path"))
