@@ -130,7 +130,7 @@ trait LiveReloadBase extends AnyFunSuite {
     val executor = Executors.newFixedThreadPool(paths.size)
     try {
       val futures = paths.map { path =>
-        executor.submit(() =>
+        executor.submit((() =>
           pollUntil(
             s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
           ) {
@@ -153,10 +153,10 @@ trait LiveReloadBase extends AnyFunSuite {
                 s"Expected body '$body' for /$path, got '$actualBody'"
               )
             }
-          }
+          }): java.lang.Runnable
         )
       }
-      futures.foreach(_.get())
+      futures.asInstanceOf[List[java.util.concurrent.Future[_]]].foreach(_.get())
     } finally executor.shutdown()
   }
 
