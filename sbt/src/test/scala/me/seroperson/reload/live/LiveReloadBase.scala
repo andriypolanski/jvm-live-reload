@@ -9,6 +9,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.concurrent.Executors
 import me.seroperson.reload.live.sbt.BuildInfo
 import me.seroperson.sbt.testkit.*
 import org.scalatest.funsuite.AnyFunSuite
@@ -116,6 +117,44 @@ trait LiveReloadBase extends AnyFunSuite {
       .flatMap(_.getInetAddresses.asScala)
       .find(address => !address.isLoopbackAddress && !address.isAnyLocalAddress)
       .map(_.getHostAddress)
+
+  /** Issues concurrent GET requests and expects each to succeed within the reload timeout. */
+  protected def verifyHttpConcurrent(
+      paths: Seq[String],
+      expectedStatus: Int,
+      expectedBody: Option[String] = None,
+      port: Int
+  ): Unit = {
+    val executor = Executors.newFixedThreadPool(paths.size)
+    try {
+      val futures = paths.map { path =>
+        executor.submit(() =>
+          pollUntil(s"HTTP /$path (status=$expectedStatus, body=$expectedBody)") {
+            val request = HttpRequest
+              .newBuilder()
+              .uri(URI.create(s"http://localhost:$port/$path"))
+              .timeout(Duration.ofSeconds(30))
+              .GET()
+              .build()
+            val response =
+              httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+            assert(
+              response.statusCode() == expectedStatus,
+              s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
+            )
+            expectedBody.foreach { body =>
+              val actualBody = response.body()
+              assert(
+                actualBody == body,
+                s"Expected body '$body' for /$path, got '$actualBody'"
+              )
+            }
+          }
+        )
+      }
+      futures.foreach(_.get())
+    } finally executor.shutdown()
+  }
 
   protected def verifyHttp(
       path: String,
