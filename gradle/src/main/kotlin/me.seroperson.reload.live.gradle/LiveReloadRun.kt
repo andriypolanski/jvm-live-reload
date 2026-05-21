@@ -10,7 +10,6 @@ import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.TaskAction
-import org.gradle.deployment.internal.DeploymentHandle
 import org.gradle.deployment.internal.DeploymentRegistry
 import org.gradle.deployment.internal.DeploymentRegistry.ChangeBehavior
 import org.gradle.work.DisableCachingByDefault
@@ -45,8 +44,8 @@ abstract class LiveReloadRun
         @get:Internal
         val isUpToDate: Boolean
             get() {
-                val deploymentHandle = deploymentRegistry.get(path, DeploymentHandle::class.java)
-                return deploymentHandle != null
+                val runHandle = deploymentRegistry.get(path, LiveReloadRunHandle::class.java)
+                return runHandle?.isRunning() == true
             }
 
         @TaskAction
@@ -67,6 +66,9 @@ abstract class LiveReloadRun
                         this.serverType.get(),
                     )
                 deploymentRegistry.start(id, ChangeBehavior.BLOCK, LiveReloadRunHandle::class.java, params)
+            } else if (!runHandle.isRunning()) {
+                logger.lifecycle("Restarting live-reload dev server after previous run stopped")
+                runHandle.restart()
             } else {
                 if (!changes.isIncremental) {
                     logger.info("Reload application by no incremental changes")

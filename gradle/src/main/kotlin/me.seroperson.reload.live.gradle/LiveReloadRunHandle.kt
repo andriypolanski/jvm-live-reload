@@ -35,9 +35,27 @@ open class LiveReloadRunHandle
         override fun isRunning(): Boolean {
             lock.readLock().lock()
             try {
-                return devServer != null
+                return devServer?.isRunning() == true
             } finally {
                 lock.readLock().unlock()
+            }
+        }
+
+        /** Starts the dev server again after [stop] when Gradle re-runs the task. */
+        fun restart() {
+            lock.writeLock().lock()
+            try {
+                val deployment =
+                    deployment
+                        ?: throw IllegalStateException(
+                            "Cannot restart live-reload: deployment handle is not available",
+                        )
+                if (devServer?.isRunning() == true) {
+                    return
+                }
+                startDevServer(deployment)
+            } finally {
+                lock.writeLock().unlock()
             }
         }
 
@@ -63,41 +81,45 @@ open class LiveReloadRunHandle
             lock.writeLock().lock()
             this.deployment = deployment
             try {
-                val serverClass =
-                    when (params.serverType) {
-                        ServerType.HTTP -> "me.seroperson.reload.live.webserver.DevServerStart"
-                        ServerType.GRPC -> "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
-                    }
-                val params =
-                    StartParams(
-                        // todo: deal with args, properties and java options
-                        DevServerSettings(listOf(), listOf(), params.settings),
-                        params.dependencyClasspath.toList(),
-                        // monitoredFiles
-                        listOf(),
-                        serverClass,
-                        params.mainClass,
-                        params.startupHooks,
-                        params.shutdownHooks,
-                        params.propagateEnv,
-                    )
-
-                val buildLogger = LiveReloadLogger()
-                val devServerRunner = DevServerRunner.getInstance()
-                devServer =
-                    devServerRunner.runBackground(
-                        params,
-                        this::reloadCompile,
-                        this::isChanged,
-                        // fileWatcherService
-                        null,
-                        buildLogger,
-                    )
-                // Visible only when running with `--info`
-                DevServerRunner.printBanner(devServer, buildLogger)
+                startDevServer(deployment)
             } finally {
                 lock.writeLock().unlock()
             }
+        }
+
+        private fun startDevServer(deployment: Deployment) {
+            val serverClass =
+                when (params.serverType) {
+                    ServerType.HTTP -> "me.seroperson.reload.live.webserver.DevServerStart"
+                    ServerType.GRPC -> "me.seroperson.reload.live.webserver.grpc.GrpcDevServerStart"
+                }
+            val startParams =
+                StartParams(
+                    // todo: deal with args, properties and java options
+                    DevServerSettings(listOf(), listOf(), params.settings),
+                    params.dependencyClasspath.toList(),
+                    // monitoredFiles
+                    listOf(),
+                    serverClass,
+                    params.mainClass,
+                    params.startupHooks,
+                    params.shutdownHooks,
+                    params.propagateEnv,
+                )
+
+            val buildLogger = LiveReloadLogger()
+            val devServerRunner = DevServerRunner.getInstance()
+            devServer =
+                devServerRunner.runBackground(
+                    startParams,
+                    this::reloadCompile,
+                    this::isChanged,
+                    // fileWatcherService
+                    null,
+                    buildLogger,
+                )
+            // Visible only when running with `--info`
+            DevServerRunner.printBanner(devServer, buildLogger)
         }
 
         override fun stop() {
@@ -110,7 +132,6 @@ open class LiveReloadRunHandle
                 logger.error("Application stopped with exception", e)
             } finally {
                 devServer = null
-                deployment = null
                 lock.writeLock().unlock()
             }
         }
