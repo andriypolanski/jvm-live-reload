@@ -130,33 +130,41 @@ trait LiveReloadBase extends AnyFunSuite {
     val executor = Executors.newFixedThreadPool(paths.size)
     try {
       val futures = paths.map { path =>
-        executor.submit((() =>
-          pollUntil(
-            s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
-          ) {
-            val request = HttpRequest
-              .newBuilder()
-              .uri(URI.create(s"http://localhost:$port/$path"))
-              .timeout(Duration.ofSeconds(30))
-              .GET()
-              .build()
-            val response =
-              httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-            assert(
-              response.statusCode() == expectedStatus,
-              s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
-            )
-            expectedBody.foreach { body =>
-              val actualBody = response.body()
-              assert(
-                actualBody == body,
-                s"Expected body '$body' for /$path, got '$actualBody'"
-              )
-            }
-          }): java.lang.Runnable
+        executor.submit(
+          (
+              () =>
+                pollUntil(
+                  s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
+                ) {
+                  val request = HttpRequest
+                    .newBuilder()
+                    .uri(URI.create(s"http://localhost:$port/$path"))
+                    .timeout(Duration.ofSeconds(30))
+                    .GET()
+                    .build()
+                  val response =
+                    httpClient.send(
+                      request,
+                      HttpResponse.BodyHandlers.ofString()
+                    )
+                  assert(
+                    response.statusCode() == expectedStatus,
+                    s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
+                  )
+                  expectedBody.foreach { body =>
+                    val actualBody = response.body()
+                    assert(
+                      actualBody == body,
+                      s"Expected body '$body' for /$path, got '$actualBody'"
+                    )
+                  }
+                }
+          ): java.lang.Runnable
         )
       }
-      futures.asInstanceOf[List[java.util.concurrent.Future[_]]].foreach(_.get())
+      futures
+        .asInstanceOf[List[java.util.concurrent.Future[_]]]
+        .foreach(_.get())
     } finally executor.shutdown()
   }
 
