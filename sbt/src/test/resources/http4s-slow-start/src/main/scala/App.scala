@@ -11,6 +11,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.dsl.io._
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
+import scala.concurrent.duration._
 
 object App extends IOApp.Simple {
 
