@@ -109,32 +109,34 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
       // Perform server-specific preparation before starting the application
       prepareServerForNewGeneration();
 
-    this.classLoader = generation.getReloadedClassLoader();
-    this.appThread =
-        new Thread(
-            appThreadGroup,
-            () -> {
-              logger.info("🚀 Starting " + mainClass);
-              try {
-                Class<?> clazz = classLoader.loadClass(mainClass);
-                var mainMethod = clazz.getMethod("main", String[].class);
-                var currentThread = Thread.currentThread();
-                logger.debug(
-                    "Running with Context ClassLoader: "
-                        + currentThread.getContextClassLoader()
-                        + " in thread "
-                        + currentThread);
-                mainMethod.invoke(null, (Object) new String[0]);
-                logger.debug("After Application.main(String[]) execution");
-              } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-                logger.error("Failed to invoke main method on " + mainClass, e);
-                stopInternal();
-                throw new RuntimeException(e);
-              } catch (InvocationTargetException e) {
-                // Don't log InterruptedException, as likely they're intended
-                if (!(e.getCause() instanceof InterruptedException)) {
-                  logger.error("Error in application main thread", e);
-                  AppFailureRegistry.record(Thread.currentThread(), e.getCause());
+      this.classLoader = generation.getReloadedClassLoader();
+      this.appThread =
+          new Thread(
+              appThreadGroup,
+              () -> {
+                logger.info("🚀 Starting " + mainClass);
+                try {
+                  Class<?> clazz = classLoader.loadClass(mainClass);
+                  var mainMethod = clazz.getMethod("main", String[].class);
+                  var currentThread = Thread.currentThread();
+                  logger.debug(
+                      "Running with Context ClassLoader: "
+                          + currentThread.getContextClassLoader()
+                          + " in thread "
+                          + currentThread);
+                  mainMethod.invoke(null, (Object) new String[0]);
+                  logger.debug("After Application.main(String[]) execution");
+                } catch (ClassNotFoundException
+                    | NoSuchMethodException
+                    | IllegalAccessException e) {
+                  logger.error("Failed to invoke main method on " + mainClass, e);
+                  stopInternal();
+                  throw new RuntimeException(e);
+                } catch (InvocationTargetException e) {
+                  // Don't log InterruptedException, as likely they're intended
+                  if (!(e.getCause() instanceof InterruptedException)) {
+                    logger.error("Error in application main thread", e);
+                    AppFailureRegistry.record(Thread.currentThread(), e.getCause());
                   }
                 }
               },
