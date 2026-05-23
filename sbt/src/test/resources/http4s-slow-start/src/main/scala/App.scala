@@ -1,8 +1,8 @@
 import cats.effect.Async
 import cats.effect.IO
 import cats.effect.IOApp
-import cats.effect.Sync
 import cats.effect.Resource
+import cats.effect.Sync
 import cats.effect.Temporal
 import cats.syntax.all._
 import com.comcast.ip4s._
