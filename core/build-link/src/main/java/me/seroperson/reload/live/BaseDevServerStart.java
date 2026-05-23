@@ -135,6 +135,7 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
                 if (!(e.getCause() instanceof InterruptedException)) {
                   logger.error("Error in application main thread", e);
                   AppFailureRegistry.record(Thread.currentThread(), e.getCause());
+                  }
                 }
               },
               "main");
