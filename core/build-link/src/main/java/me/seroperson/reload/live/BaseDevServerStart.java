@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import me.seroperson.reload.live.build.BuildLink;
 import me.seroperson.reload.live.build.BuildLogger;
 import me.seroperson.reload.live.build.ReloadableServer;
+import me.seroperson.reload.live.hook.AppFailureRegistry;
 import me.seroperson.reload.live.hook.Hook;
 import me.seroperson.reload.live.settings.DevServerSettings;
 
@@ -132,6 +133,7 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
                 // Don't log InterruptedException, as likely they're intended
                 if (!(e.getCause() instanceof InterruptedException)) {
                   logger.error("Error in application main thread", e);
+                  AppFailureRegistry.record(Thread.currentThread(), e.getCause());
                 }
               }
             },
@@ -160,6 +162,7 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
       if (th != null) {
         logger.debug("Stopping " + mainClass);
         runHooks(th, cl, shutdownHooks);
+        AppFailureRegistry.clear(th);
       }
     } finally {
       if (cl != null) {
