@@ -105,8 +105,9 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
           "Unable to start underlying application without a running proxy.");
     }
 
-    // Perform server-specific preparation before starting the application
-    prepareServerForNewGeneration();
+    try {
+      // Perform server-specific preparation before starting the application
+      prepareServerForNewGeneration();
 
     this.classLoader = generation.getReloadedClassLoader();
     this.appThread =
@@ -135,13 +136,20 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
                   logger.error("Error in application main thread", e);
                   AppFailureRegistry.record(Thread.currentThread(), e.getCause());
                 }
-              }
-            },
-            "main");
-    appThread.setContextClassLoader(classLoader);
-    appThread.start();
+              },
+              "main");
+      appThread.setContextClassLoader(classLoader);
+      appThread.start();
 
-    runHooks(appThread, classLoader, startupHooks);
+      runHooks(appThread, classLoader, startupHooks);
+    } catch (RuntimeException | Error t) {
+      try {
+        stopInternal();
+      } catch (Throwable cleanupErr) {
+        t.addSuppressed(cleanupErr);
+      }
+      throw t;
+    }
   }
 
   /** Stops the currently running application instance. */
@@ -206,7 +214,12 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
       // New application classes
       logger.info("🔃 Reloading an application");
       stopInternal();
-      startInternal(casted);
+      try {
+        startInternal(casted);
+      } catch (RuntimeException | Error t) {
+        throw new UnrecoverableException(
+            "Reload failed; restart `liveReload` after fixing the cause", t);
+      }
       logger.debug("Finished reloading");
       return true;
     } else if (reloadResult == null) {

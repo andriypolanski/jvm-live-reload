@@ -132,4 +132,20 @@ class LiveReloadSpec extends LiveReloadBase {
       verifyHttp("greet", 404, port = proxyPort)
     }
   }
+
+  testEach(
+    "http4s - throwing startup hook triggers unrecoverable shutdown",
+    Seq("2.0.0-RC10")
+  ) { sbtVersion =>
+    withRunner("http4s", sbtVersion) { (runner, proxyPort) =>
+      runner.run("bgRun")
+      verifyHttp("greet", 200, Some("Hello World"), proxyPort)
+      runner.copyFile(
+        "changes/AppBrokenHealth.scala.1",
+        "src/main/scala/App.scala"
+      )
+      verifyHttp("greet", 503, Some("dev server stopped"), proxyPort)
+      verifyPortClosed(proxyPort)
+    }
+  }
 }
