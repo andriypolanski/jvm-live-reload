@@ -2,6 +2,8 @@ import cats.effect.Async
 import cats.effect.IO
 import cats.effect.IOApp
 import cats.effect.Sync
+import cats.effect.Resource
+import cats.effect.Temporal
 import cats.syntax.all._
 import com.comcast.ip4s._
 import org.http4s._
@@ -27,7 +29,7 @@ object App extends IOApp.Simple {
 
   def runServer[F[_]: Async]: F[Nothing] = {
     for {
-      _ <- Sync[F].delay(Thread.sleep(2000))
+      _ <- Resource.eval(Temporal[F].sleep(2.seconds))
       _ <-
         EmberServerBuilder
           .default[F]
