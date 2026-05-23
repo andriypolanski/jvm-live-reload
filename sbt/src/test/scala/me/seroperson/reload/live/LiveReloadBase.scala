@@ -13,6 +13,10 @@ import java.util.concurrent.Executors
 import me.seroperson.reload.live.sbt.BuildInfo
 import me.seroperson.sbt.testkit.*
 import org.scalatest.funsuite.AnyFunSuite
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration as ScalaDuration
 import scala.jdk.CollectionConverters.*
 import scala.util.Failure
 import scala.util.Success
@@ -128,43 +132,38 @@ trait LiveReloadBase extends AnyFunSuite {
       port: Int
   ): Unit = {
     val executor = Executors.newFixedThreadPool(paths.size)
+    given ExecutionContext = ExecutionContext.fromExecutor(executor)
     try {
-      val futures = paths.map { path =>
-        executor.submit(
-          (
-              () =>
-                pollUntil(
-                  s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
-                ) {
-                  val request = HttpRequest
-                    .newBuilder()
-                    .uri(URI.create(s"http://localhost:$port/$path"))
-                    .timeout(Duration.ofSeconds(30))
-                    .GET()
-                    .build()
-                  val response =
-                    httpClient.send(
-                      request,
-                      HttpResponse.BodyHandlers.ofString()
-                    )
-                  assert(
-                    response.statusCode() == expectedStatus,
-                    s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
-                  )
-                  expectedBody.foreach { body =>
-                    val actualBody = response.body()
-                    assert(
-                      actualBody == body,
-                      s"Expected body '$body' for /$path, got '$actualBody'"
-                    )
-                  }
-                }
-          ): java.lang.Runnable
-        )
-      }
-      futures
-        .asInstanceOf[List[java.util.concurrent.Future[_]]]
-        .foreach(_.get())
+      Await.result(
+        Future.traverse(paths) { path =>
+          Future {
+            pollUntil(
+              s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
+            ) {
+              val request = HttpRequest
+                .newBuilder()
+                .uri(URI.create(s"http://localhost:$port/$path"))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build()
+              val response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+              assert(
+                response.statusCode() == expectedStatus,
+                s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
+              )
+              expectedBody.foreach { body =>
+                val actualBody = response.body()
+                assert(
+                  actualBody == body,
+                  s"Expected body '$body' for /$path, got '$actualBody'"
+                )
+              }
+            }
+          }
+        },
+        ScalaDuration.Inf
+      )
     } finally executor.shutdown()
   }
 
