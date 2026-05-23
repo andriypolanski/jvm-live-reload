@@ -173,9 +173,9 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
       if (th != null) {
         logger.debug("Stopping " + mainClass);
         runHooks(th, cl, shutdownHooks);
-        AppFailureRegistry.clear(th);
       }
     } finally {
+      AppFailureRegistry.clear(th);
       if (cl != null) {
         logger.debug("Cleaning up old ClassLoader");
         if (cl instanceof Closeable) {
