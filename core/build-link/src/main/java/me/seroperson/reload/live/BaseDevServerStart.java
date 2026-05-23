@@ -206,8 +206,9 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
         });
   }
 
+  /** Synchronized with {@link #startInternal} so concurrent requests wait for startup hooks. */
   @Override
-  public boolean reload() {
+  public synchronized boolean reload() {
     var reloadResult = buildLink.reload();
     if (reloadResult instanceof ReloadGeneration) {
       var casted = (ReloadGeneration) reloadResult;

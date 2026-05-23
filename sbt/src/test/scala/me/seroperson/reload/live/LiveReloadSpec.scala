@@ -2,6 +2,19 @@ package me.seroperson.reload.live
 
 class LiveReloadSpec extends LiveReloadBase {
 
+  testEach("http4s-slow-start - concurrent first requests wait for startup") {
+    sbtVersion =>
+      withRunner("http4s-slow-start", sbtVersion) { (runner, proxyPort) =>
+        runner.run("bgRun")
+        verifyHttpConcurrent(
+          Seq("greet", "greet2"),
+          200,
+          Some("hello"),
+          proxyPort
+        )
+      }
+  }
+
   testEach("http4s - live reload on source change") { sbtVersion =>
     withRunner("http4s", sbtVersion) { (runner, proxyPort) =>
       runner.run("bgRun")
