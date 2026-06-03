@@ -1,7 +1,5 @@
 package me.seroperson.reload.live.gradle
 
-import org.gradle.testkit.runner.TaskOutcome
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.api.io.TempDir
@@ -22,57 +20,48 @@ class LiveReloadRunRestartTest : LiveReloadTestBase() {
     private val buildFile by lazy { projectDir.resolve("build.gradle.kts") }
     private val settingsFile by lazy { projectDir.resolve("settings.gradle.kts") }
 
+    /**
+     * Exercises the deployment-handle restart path within a single BuildSession: continuous build
+     * stops the handle, recompiles, and re-runs [LiveReloadRun] against the same registry entry.
+     * Two separate TestKit [GradleRunner.build] calls each get a fresh [DeploymentRegistry] and
+     * would not cover this path.
+     */
     @Test
-    fun `liveReloadRun restarts proxy after previous run stopped`() {
+    fun `liveReloadRun restarts proxy after continuous rebuild stops deployment`() {
         settingsFile.writeText(SETTINGS_CONTENT)
         buildFile.writeText(BUILD_CONTENT)
-        appCode.writeText(APP_CODE)
+        appCode.writeText(APP_CODE_1)
 
         val runner = initGradleRunner(":liveReloadRun", projectDir)
+        runner.withArguments(runner.arguments + "--continuous")
 
-        val firstRunRunning = AtomicBoolean(true)
-        val firstRun =
+        val isBuildRunning = AtomicBoolean(true)
+        val runThread =
             Thread {
                 try {
                     runner.build()
                 } catch (_: InterruptedException) {
-                    println("First liveReloadRun interrupted")
+                    println("liveReloadRun interrupted")
                 } finally {
-                    firstRunRunning.set(false)
+                    isBuildRunning.set(false)
                 }
             }
-        firstRun.start()
+        runThread.start()
 
         assertTrue(
-            runUntil(firstRunRunning, "http://localhost:9000/greet", 200, "Hello World"),
-            "Proxy should respond during the first liveReloadRun",
+            runUntil(isBuildRunning, "http://localhost:9000/greet", 200, "Hello World"),
+            "Proxy should serve the initial greeting",
         )
 
-        firstRun.interrupt()
-        firstRun.join(30_000)
-
-        val secondRunRunning = AtomicBoolean(true)
-        val secondRun =
-            Thread {
-                try {
-                    val result = runner.build()
-                    assertFalse(
-                        result.task(":liveReloadRun")?.outcome == TaskOutcome.UP_TO_DATE,
-                        "Second liveReloadRun should execute, not be skipped as UP-TO-DATE",
-                    )
-                } finally {
-                    secondRunRunning.set(false)
-                }
-            }
-        secondRun.start()
+        appCode.writeText(APP_CODE_2)
 
         assertTrue(
-            runUntil(secondRunRunning, "http://localhost:9000/greet", 200, "Hello World"),
-            "Proxy should respond again after restarting liveReloadRun in the same daemon",
+            runUntil(isBuildRunning, "http://localhost:9000/greet", 200, "World Hello"),
+            "Proxy should serve the recompiled greeting after continuous rebuild restarts the handle",
         )
 
-        secondRun.interrupt()
-        secondRun.join(30_000)
+        runThread.interrupt()
+        runThread.join(30_000)
     }
 
     companion object {
@@ -98,7 +87,7 @@ liveReload { settings = mapOf("live.reload.http.port" to "8081") }
 
 application { mainClass = "AppKt" }
 """
-        const val APP_CODE =
+        const val APP_CODE_1 =
             """
 import io.javalin.Javalin
 
@@ -106,6 +95,23 @@ fun main() {
     val server =
         Javalin.create()
             .get("/greet") { it.result("Hello World") }
+            .get("/health") { it.status(200) }
+    try {
+        server.start(8081)
+        Thread.currentThread().join()
+    } catch (_: InterruptedException) {
+        server.stop()
+    }
+}
+"""
+        const val APP_CODE_2 =
+            """
+import io.javalin.Javalin
+
+fun main() {
+    val server =
+        Javalin.create()
+            .get("/greet") { it.result("World Hello") }
             .get("/health") { it.status(200) }
     try {
         server.start(8081)

@@ -48,34 +48,39 @@ abstract class LiveReloadRun
                 return runHandle?.isRunning() == true
             }
 
+        private fun currentParams(): LiveReloadRunParams =
+            LiveReloadRunParams(
+                this.runtimeClasspath.files,
+                this.classes.files,
+                this.settings.get(),
+                this.mainClass.get(),
+                this.startupHooks.get(),
+                this.shutdownHooks.get(),
+                this.propagateEnv.get(),
+                this.serverType.get(),
+            )
+
         @TaskAction
         fun run(changes: InputChanges) {
             val id = path
+            val params = currentParams()
             val runHandle: LiveReloadRunHandle? =
                 deploymentRegistry.get(id, LiveReloadRunHandle::class.java)
             if (runHandle == null) {
-                val params =
-                    LiveReloadRunParams(
-                        this.runtimeClasspath.files,
-                        this.classes.files,
-                        this.settings.get(),
-                        this.mainClass.get(),
-                        this.startupHooks.get(),
-                        this.shutdownHooks.get(),
-                        this.propagateEnv.get(),
-                        this.serverType.get(),
-                    )
                 deploymentRegistry.start(id, ChangeBehavior.BLOCK, LiveReloadRunHandle::class.java, params)
-            } else if (!runHandle.isRunning()) {
-                logger.lifecycle("Restarting live-reload dev server after previous run stopped")
-                runHandle.restart()
             } else {
-                if (!changes.isIncremental) {
-                    logger.info("Reload application by no incremental changes")
-                } else if (changes.getFileChanges(this.classes).iterator().hasNext()) {
-                    logger.info("Reload application by incremental changes in application classpath")
+                runHandle.updateParams(params)
+                if (!runHandle.isRunning()) {
+                    logger.lifecycle("Restarting live-reload dev server after previous run stopped")
+                    runHandle.restart()
                 } else {
-                    logger.info("Incremental changes in Assets")
+                    if (!changes.isIncremental) {
+                        logger.info("Reload application by no incremental changes")
+                    } else if (changes.getFileChanges(this.classes).iterator().hasNext()) {
+                        logger.info("Reload application by incremental changes in application classpath")
+                    } else {
+                        logger.info("Incremental changes in Assets")
+                    }
                 }
             }
         }
