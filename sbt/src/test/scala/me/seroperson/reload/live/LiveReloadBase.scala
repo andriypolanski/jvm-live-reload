@@ -9,9 +9,14 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.time.Duration
+import java.util.concurrent.Executors
 import me.seroperson.reload.live.sbt.BuildInfo
 import me.seroperson.sbt.testkit.*
 import org.scalatest.funsuite.AnyFunSuite
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration as ScalaDuration
 import scala.jdk.CollectionConverters.*
 import scala.util.Failure
 import scala.util.Success
@@ -116,6 +121,51 @@ trait LiveReloadBase extends AnyFunSuite {
       .flatMap(_.getInetAddresses.asScala)
       .find(address => !address.isLoopbackAddress && !address.isAnyLocalAddress)
       .map(_.getHostAddress)
+
+  /** Issues concurrent GET requests and expects each to succeed within the
+    * reload timeout.
+    */
+  protected def verifyHttpConcurrent(
+      paths: Seq[String],
+      expectedStatus: Int,
+      expectedBody: Option[String] = None,
+      port: Int
+  ): Unit = {
+    val executor = Executors.newFixedThreadPool(paths.size)
+    given ExecutionContext = ExecutionContext.fromExecutor(executor)
+    try {
+      Await.result(
+        Future.traverse(paths) { path =>
+          Future {
+            pollUntil(
+              s"HTTP /$path (status=$expectedStatus, body=$expectedBody)"
+            ) {
+              val request = HttpRequest
+                .newBuilder()
+                .uri(URI.create(s"http://localhost:$port/$path"))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build()
+              val response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+              assert(
+                response.statusCode() == expectedStatus,
+                s"Expected status $expectedStatus for /$path, got ${response.statusCode()}"
+              )
+              expectedBody.foreach { body =>
+                val actualBody = response.body()
+                assert(
+                  actualBody == body,
+                  s"Expected body '$body' for /$path, got '$actualBody'"
+                )
+              }
+            }
+          }
+        },
+        ScalaDuration.Inf
+      )
+    } finally executor.shutdown()
+  }
 
   protected def verifyHttp(
       path: String,

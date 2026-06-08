@@ -27,6 +27,7 @@ public abstract class HealthCheckStartupHook implements HealthCheckHook {
   public void hook(Thread th, ClassLoader cl, DevServerSettings settings, BuildLogger logger) {
     try {
       while (true) {
+        AppFailureRegistry.throwIfFailed(th);
         logger.debug("Waiting for the health-check to return success ...");
         var path = settings.getHealthCheckPath();
         var healthResponse =

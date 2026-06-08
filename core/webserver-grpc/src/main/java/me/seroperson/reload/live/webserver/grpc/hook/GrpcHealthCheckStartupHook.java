@@ -2,6 +2,7 @@ package me.seroperson.reload.live.webserver.grpc.hook;
 
 import me.seroperson.reload.live.UnrecoverableException;
 import me.seroperson.reload.live.build.BuildLogger;
+import me.seroperson.reload.live.hook.AppFailureRegistry;
 import me.seroperson.reload.live.settings.DevServerSettings;
 
 /**
@@ -27,6 +28,7 @@ public class GrpcHealthCheckStartupHook implements GrpcHealthCheckHook {
   public void hook(Thread th, ClassLoader cl, DevServerSettings settings, BuildLogger logger) {
     try {
       while (true) {
+        AppFailureRegistry.throwIfFailed(th);
         logger.debug("Waiting for the GRPC health-check to return SERVING ...");
         var response = isHealthy(logger, settings);
         if (response == 1) {

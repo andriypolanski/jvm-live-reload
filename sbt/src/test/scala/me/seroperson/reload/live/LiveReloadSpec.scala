@@ -2,6 +2,19 @@ package me.seroperson.reload.live
 
 class LiveReloadSpec extends LiveReloadBase {
 
+  testEach("http4s-slow-start - concurrent first requests wait for startup") {
+    sbtVersion =>
+      withRunner("http4s-slow-start", sbtVersion) { (runner, proxyPort) =>
+        runner.run("bgRun")
+        verifyHttpConcurrent(
+          Seq("greet", "greet2"),
+          200,
+          Some("hello"),
+          proxyPort
+        )
+      }
+  }
+
   testEach("http4s - live reload on source change") { sbtVersion =>
     withRunner("http4s", sbtVersion) { (runner, proxyPort) =>
       runner.run("bgRun")
@@ -29,6 +42,14 @@ class LiveReloadSpec extends LiveReloadBase {
       runner.copyFile("changes/App.scala.1", "src/main/scala/App.scala")
       verifyHttp("greet_reloaded", 200, Some("World Hello"), proxyPort)
       verifyHttp("greet", 404, Some("Error 404: Not Found"), proxyPort)
+    }
+  }
+
+  testEach("startup crash before bind returns HTTP 503") { sbtVersion =>
+    withRunner("startup-crash", sbtVersion) { (runner, proxyPort) =>
+      runner.run("bgRun")
+      verifyHttp("greet", 503, Some("dev server stopped"), proxyPort)
+      verifyPortClosed(proxyPort)
     }
   }
 
@@ -122,6 +143,22 @@ class LiveReloadSpec extends LiveReloadBase {
       )
       verifyHttp("greet_reloaded", 200, Some("World Hello!"), proxyPort)
       verifyHttp("greet", 404, port = proxyPort)
+    }
+  }
+
+  testEach(
+    "http4s - throwing startup hook triggers unrecoverable shutdown",
+    Seq("2.0.0-RC10")
+  ) { sbtVersion =>
+    withRunner("http4s", sbtVersion) { (runner, proxyPort) =>
+      runner.run("bgRun")
+      verifyHttp("greet", 200, Some("Hello World"), proxyPort)
+      runner.copyFile(
+        "changes/AppBrokenHealth.scala.1",
+        "src/main/scala/App.scala"
+      )
+      verifyHttp("greet", 503, Some("dev server stopped"), proxyPort)
+      verifyPortClosed(proxyPort)
     }
   }
 }

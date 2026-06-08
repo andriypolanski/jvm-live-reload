@@ -7,6 +7,7 @@ import io.undertow.server.handlers.proxy.ProxyHandler;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import me.seroperson.reload.live.BaseDevServerStart;
 import me.seroperson.reload.live.UnrecoverableException;
 import me.seroperson.reload.live.build.BuildLink;
@@ -61,7 +62,7 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
               proxyClientProvider,
               /* maxRequestTime */ -1,
               ResponseCodeHandler.HANDLE_404,
-              /* rewriteHostHeader */ false,
+              /* rewriteHostHeader */ true,
               /* reuseXForwarded */ false,
               2);
       // @formatter:on
@@ -88,11 +89,7 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
         // start() failed after the worker was created. Release its threads, and
         // null out the field so cleanupServerForOldGeneration() does not later try
         // to shutdownNow() on an already-shutdown worker.
-        try {
-          workerToCleanup.shutdownNow();
-        } catch (Throwable shutdownErr) {
-          logger.error("Failed to shutdown XnioWorker after start() failure", shutdownErr);
-        }
+        shutdownWorker(workerToCleanup);
         this.currentGenerationWorker = null;
       }
       if (proxyToCleanup != null) {
@@ -117,9 +114,10 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
 
   @Override
   protected void cleanupServerForOldGeneration() {
-    if (currentGenerationWorker != null) {
-      currentGenerationWorker.shutdownNow();
+    var worker = currentGenerationWorker;
+    if (worker != null) {
       currentGenerationWorker = null;
+      shutdownWorker(worker);
     }
   }
 
@@ -155,6 +153,20 @@ public class DevServerStart extends BaseDevServerStart<Undertow> {
     } catch (IOException e) {
       throw new UnrecoverableException(
           "Failed to create XnioWorker for the HTTP proxy listener", e);
+    }
+  }
+
+  private void shutdownWorker(XnioWorker worker) {
+    try {
+      worker.shutdownNow();
+      if (!worker.awaitTermination(5, TimeUnit.SECONDS)) {
+        logger.warn("XnioWorker did not terminate within 5 seconds");
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      logger.error("Interrupted while waiting for XnioWorker termination", e);
+    } catch (Throwable shutdownErr) {
+      logger.error("Failed to shutdown XnioWorker", shutdownErr);
     }
   }
 

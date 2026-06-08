@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import me.seroperson.reload.live.build.BuildLink;
 import me.seroperson.reload.live.build.BuildLogger;
 import me.seroperson.reload.live.build.ReloadableServer;
+import me.seroperson.reload.live.hook.AppFailureRegistry;
 import me.seroperson.reload.live.hook.Hook;
 import me.seroperson.reload.live.settings.DevServerSettings;
 
@@ -104,47 +105,60 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
           "Unable to start underlying application without a running proxy.");
     }
 
-    // Perform server-specific preparation before starting the application
-    prepareServerForNewGeneration();
+    try {
+      // Perform server-specific preparation before starting the application
+      prepareServerForNewGeneration();
 
-    this.classLoader = generation.getReloadedClassLoader();
-    this.appThread =
-        new Thread(
-            appThreadGroup,
-            () -> {
-              logger.info("🚀 Starting " + mainClass);
-              try {
-                Class<?> clazz = classLoader.loadClass(mainClass);
-                var mainMethod = clazz.getMethod("main", String[].class);
-                var currentThread = Thread.currentThread();
-                logger.debug(
-                    "Running with Context ClassLoader: "
-                        + currentThread.getContextClassLoader()
-                        + " in thread "
-                        + currentThread);
-                mainMethod.invoke(null, (Object) new String[0]);
-                logger.debug("After Application.main(String[]) execution");
-              } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException e) {
-                logger.error("Failed to invoke main method on " + mainClass, e);
-                stopInternal();
-                throw new RuntimeException(e);
-              } catch (InvocationTargetException e) {
-                // Don't log InterruptedException, as likely they're intended
-                if (!(e.getCause() instanceof InterruptedException)) {
-                  logger.error("Error in application main thread", e);
+      this.classLoader = generation.getReloadedClassLoader();
+      this.appThread =
+          new Thread(
+              appThreadGroup,
+              () -> {
+                logger.info("🚀 Starting " + mainClass);
+                try {
+                  Class<?> clazz = classLoader.loadClass(mainClass);
+                  var mainMethod = clazz.getMethod("main", String[].class);
+                  var currentThread = Thread.currentThread();
+                  logger.debug(
+                      "Running with Context ClassLoader: "
+                          + currentThread.getContextClassLoader()
+                          + " in thread "
+                          + currentThread);
+                  mainMethod.invoke(null, (Object) new String[0]);
+                  logger.debug("After Application.main(String[]) execution");
+                } catch (ClassNotFoundException
+                    | NoSuchMethodException
+                    | IllegalAccessException e) {
+                  logger.error("Failed to invoke main method on " + mainClass, e);
+                  stopInternal();
+                  throw new RuntimeException(e);
+                } catch (InvocationTargetException e) {
+                  // Don't log InterruptedException, as likely they're intended
+                  if (!(e.getCause() instanceof InterruptedException)) {
+                    logger.error("Error in application main thread", e);
+                    AppFailureRegistry.record(Thread.currentThread(), e.getCause());
+                  }
                 }
-              }
-            },
-            "main");
-    appThread.setContextClassLoader(classLoader);
-    appThread.start();
+              },
+              "main");
+      appThread.setContextClassLoader(classLoader);
+      appThread.start();
 
-    runHooks(appThread, classLoader, startupHooks);
+      runHooks(appThread, classLoader, startupHooks);
+    } catch (RuntimeException | Error t) {
+      try {
+        stopInternal();
+      } catch (Throwable cleanupErr) {
+        t.addSuppressed(cleanupErr);
+      }
+      throw t;
+    }
   }
 
   /** Stops the currently running application instance. */
   protected synchronized void stopInternal() {
     if (appThread == null && classLoader == null) {
+      cleanupServerForOldGeneration();
       return;
     }
 
@@ -162,6 +176,7 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
         runHooks(th, cl, shutdownHooks);
       }
     } finally {
+      AppFailureRegistry.clear(th);
       if (cl != null) {
         logger.debug("Cleaning up old ClassLoader");
         if (cl instanceof Closeable) {
@@ -195,15 +210,21 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
         });
   }
 
+  /** Synchronized with {@link #startInternal} so concurrent requests wait for startup hooks. */
   @Override
-  public boolean reload() {
+  public synchronized boolean reload() {
     var reloadResult = buildLink.reload();
     if (reloadResult instanceof ReloadGeneration) {
       var casted = (ReloadGeneration) reloadResult;
       // New application classes
       logger.info("🔃 Reloading an application");
       stopInternal();
-      startInternal(casted);
+      try {
+        startInternal(casted);
+      } catch (RuntimeException | Error t) {
+        throw new UnrecoverableException(
+            "Reload failed; restart `liveReload` after fixing the cause", t);
+      }
       logger.debug("Finished reloading");
       return true;
     } else if (reloadResult == null) {
@@ -253,9 +274,7 @@ public abstract class BaseDevServerStart<S> implements ReloadableServer {
     if (isRunning.get()) {
       logger.info("🛑 Stopping the application");
       stopProxyServer();
-      if (appThread != null) {
-        stopInternal();
-      }
+      stopInternal();
       buildLink.close();
       isRunning.set(false);
       logger.debug("Application and proxy server were successfully stopped");
