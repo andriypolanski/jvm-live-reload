@@ -22,9 +22,9 @@ class LiveReloadRunRestartTest : LiveReloadTestBase() {
 
     /**
      * Exercises the deployment-handle restart path within a single BuildSession: continuous build
-     * stops the handle, recompiles, and re-runs [LiveReloadRun] against the same registry entry.
-     * Two separate TestKit [GradleRunner.build] calls each get a fresh [DeploymentRegistry] and
-     * would not cover this path.
+     * stops the handle, recompiles, and re-runs [LiveReloadRun] against the same registry entry. Two
+     * separate TestKit [GradleRunner.build] calls each get a fresh [DeploymentRegistry] and would not
+     * cover this path.
      */
     @Test
     fun `liveReloadRun restarts proxy after continuous rebuild stops deployment`() {
