@@ -1,5 +1,7 @@
 package me.seroperson.reload.live.mill
 
+import java.io.File
+import java.nio.file.{Path => JPath}
 import java.util.function.Supplier
 import me.seroperson.reload.live.runner.CompileResult
 import me.seroperson.reload.live.runner.CompileResult.CompileFailure
@@ -8,9 +10,8 @@ import me.seroperson.reload.live.runner.DevServerRunner
 import me.seroperson.reload.live.runner.StartParams
 import me.seroperson.reload.live.settings.DevServerSettings
 import mill.*
+import mill.api.BuildCtx
 import mill.api.Evaluator
-import mill.api.Task.Simple
-import mill.api.TaskCtx
 import mill.api.daemon.Result
 import mill.javalib.Dep
 import mill.javalib.JavaModule
@@ -48,24 +49,45 @@ trait LiveReloadModule extends JavaModule {
     Map()
   }
 
+  private def liveMonitoredFiles: Task[Seq[File]] = {
+    val monitoredInputTasks =
+      transitiveRunModuleDeps.flatMap(module =>
+        Seq(module.sources, module.resources)
+      )
+    val monitoredInputs = Task.sequence(monitoredInputTasks)
+
+    Task.Anon {
+      val outputRoot =
+        (BuildCtx.workspaceRoot / "out").toIO.getCanonicalFile.toPath
+      val monitoredPaths = monitoredInputs().flatten
+        .map(_.path.toIO.getCanonicalFile.toPath)
+        .filterNot(path => path.startsWith(outputRoot))
+        .filter(path => path.toFile.exists())
+        .distinct
+        .sorted
+        .foldLeft(List.empty[JPath]) { (result, next) =>
+          result.headOption match {
+            case Some(previous) if next.startsWith(previous) => result
+            case _                                           => next :: result
+          }
+        }
+
+      monitoredPaths.reverse.map(_.toFile)
+    }
+  }
+
   def liveHookBundle: Task[Option[HookBundle]] = Task.Anon {
     if (liveServerType() == GrpcServerType) {
       Some(GrpcAppHookBundle)
     } else {
-      runClasspath().collectFirst {
-        case lib
-            if lib.path.toIO.getName.startsWith(
-              "zio-http"
-            ) || lib.path.toIO.getName.startsWith("zio") =>
-          ZioAppHookBundle
-        case lib if lib.path.toIO.getName.startsWith("cask") =>
-          CaskAppHookBundle
-        case lib
-            if lib.path.toIO.getName.startsWith(
-              "http4s"
-            ) || lib.path.toIO.getName.startsWith("cats-effect") =>
-          IoAppHookBundle
-      }
+      val jarNames = runClasspath().map(_.path.toIO.getName)
+      def has(prefix: String): Boolean = jarNames.exists(_.startsWith(prefix))
+      if (has("zio-http")) Some(ZioAppHookBundle)
+      else if (has("http4s")) Some(IoAppHookBundle)
+      else if (has("cask")) Some(CaskAppHookBundle)
+      else if (has("zio")) Some(ZioAppHookBundle)
+      else if (has("cats-effect")) Some(IoAppHookBundle)
+      else None
     }
   }
 
@@ -141,7 +163,8 @@ trait LiveReloadModule extends JavaModule {
       /* dependencyClasspath */ resolvedRunMvnDeps()
         .map(_.path.toIO)
         .asJava,
-      /* monitoredFiles */ sources().map(_.path.toIO).asJava,
+      /* monitoredFiles */
+      liveMonitoredFiles().asJava,
       /* mainClassName */ mainClassName,
       /* internalMainClassName */ finalMainClass(),
       liveStartupHooks().asJava,

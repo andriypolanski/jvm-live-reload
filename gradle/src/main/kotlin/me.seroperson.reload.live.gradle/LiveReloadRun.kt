@@ -69,10 +69,12 @@ abstract class LiveReloadRun
             if (runHandle == null) {
                 deploymentRegistry.start(id, ChangeBehavior.BLOCK, LiveReloadRunHandle::class.java, params)
             } else {
-                runHandle.updateParams(params)
-                if (!runHandle.isRunning()) {
-                    logger.lifecycle("Restarting live-reload dev server after previous run stopped")
-                    runHandle.restart()
+                if (!changes.isIncremental) {
+                    logger.info("Reload application by no incremental changes")
+                    runHandle.markChanged()
+                } else if (changes.getFileChanges(this.classes).iterator().hasNext()) {
+                    logger.info("Reload application by incremental changes in application classpath")
+                    runHandle.markChanged()
                 } else {
                     if (!changes.isIncremental) {
                         logger.info("Reload application by no incremental changes")
